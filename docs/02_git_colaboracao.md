@@ -27,7 +27,7 @@ py -3.12 -m venv .venv
 ```
 A API estará em `http://127.0.0.1:8000/docs`, quando o servidor for iniciado.
 
-> O bundle Git é um snapshot **local**, sem remote GitHub. Para publicar, crie um repositório privado ou público conforme decisão da equipe e use `git remote add origin <url>`; após isso, `git push -u origin main develop`.
+> O bundle Git é um snapshot **local**, sem remote GitHub. Ao clonar um bundle, o `origin` fica apontando para o arquivo local. Depois de criar um repositório GitHub conforme decisão da equipe, utilize `git remote set-url origin <url-do-repositorio>` e `git push -u origin main develop`. Se inicializou pelo ZIP, use primeiro `git remote add origin <url-do-repositorio>`.
 
 ## Caso use o ZIP em vez do bundle
 ```powershell
