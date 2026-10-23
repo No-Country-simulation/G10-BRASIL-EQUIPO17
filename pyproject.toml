@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mediflow-hackathon"
+version = "0.1.0"
+description = "Protótipo educacional de triagem documental — Hackathon ONE G10"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+# Os intervalos abaixo nao sao um lockfile. Fixar versões verificadas antes do deploy.
+dependencies = [
+    "fastapi>=0.115,<1",
+    "pydantic>=2.10,<3",
+    "PyYAML>=6,<7",
+    "uvicorn>=0.30,<1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "httpx>=0.27,<1", "jsonschema>=4.20,<5"]
+ai = ["langgraph>=1,<2"]
+cloud = ["oci>=2,<3"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["mediflow*", "mediflow_contracts*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["mediflow", "mediflow_contracts"]

@@ -1,0 +1,59 @@
+{
+  "contrato_versao": "0.1",
+  "documento_id": "DOC-002",
+  "tipo_documento": "laudo_imagem",
+  "especialidade_texto": null,
+  "dados_extraidos": {
+    "paciente": {
+      "nome": "Carlos Almeida Exemplo",
+      "nome_status": "legivel",
+      "identificador": null,
+      "idade": 52
+    },
+    "profissional": {
+      "nome": "Dra. Renata Silveira Exemplo",
+      "crm_texto": "CRM-XX 000002"
+    },
+    "exame": {
+      "nome": "Angiotomografia de tórax com contraste",
+      "achados": "Falha de enchimento em ramo arterial pulmonar.",
+      "conclusao": "Achados descritos como compatíveis com tromboembolismo pulmonar agudo.",
+      "resultados": []
+    },
+    "medicamentos": [],
+    "procedimentos": [],
+    "identificacao_guia": null,
+    "cid_documentado": null,
+    "data_emissao": "2026-10-19",
+    "data_solicitacao": null,
+    "data_admissao": null,
+    "data_alta": null,
+    "afastamento_periodo": null,
+    "resumo": null,
+    "descricao_documento": null
+  },
+  "evidencias": [
+    {
+      "campo": "paciente.nome",
+      "trecho_documento": "Carlos Almeida Exemplo | 52 anos",
+      "pagina": 1,
+      "origem": "documento"
+    },
+    {
+      "campo": "exame.conclusao",
+      "trecho_documento": "Achados descritos como compatíveis com tromboembolismo pulmonar agudo.",
+      "pagina": 1,
+      "origem": "documento"
+    },
+    {
+      "campo": "sinais_documentais.marcador_urgencia_explicito",
+      "trecho_documento": "ACHADO CRÍTICO - URGENTE. Comunicar equipe assistencial imediatamente",
+      "pagina": 1,
+      "origem": "documento"
+    }
+  ],
+  "sinais_documentais": {
+    "marcador_urgencia_explicito": true,
+    "transcricao_marcador_urgencia": "ACHADO CRÍTICO - URGENTE"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "contrato_versao": "0.1",
+  "documento_id": "DOC-005",
+  "tipo_documento": "receituario",
+  "especialidade_texto": null,
+  "dados_extraidos": {
+    "paciente": {
+      "nome": "Fernanda Oliveira Exemplo",
+      "nome_status": "legivel",
+      "identificador": null,
+      "idade": null
+    },
+    "profissional": {
+      "nome": null,
+      "crm_texto": null
+    },
+    "exame": {
+      "nome": null,
+      "achados": null,
+      "conclusao": null,
+      "resultados": []
+    },
+    "medicamentos": [
+      {
+        "nome": "Medicamento Alfa (fictício)",
+        "dosagem_texto": null,
+        "dosagem_status": "ilegivel"
+      }
+    ],
+    "procedimentos": [],
+    "identificacao_guia": null,
+    "cid_documentado": null,
+    "data_emissao": null,
+    "data_solicitacao": null,
+    "data_admissao": null,
+    "data_alta": null,
+    "afastamento_periodo": null,
+    "resumo": null,
+    "descricao_documento": null
+  },
+  "evidencias": [
+    {
+      "campo": "paciente.nome",
+      "trecho_documento": "Fernanda Oliveira Exemplo",
+      "pagina": 1,
+      "origem": "documento"
+    },
+    {
+      "campo": "medicamentos[0].nome",
+      "trecho_documento": "Medicamento Alfa (fictício)",
+      "pagina": 1,
+      "origem": "documento"
+    }
+  ],
+  "sinais_documentais": {
+    "marcador_urgencia_explicito": false,
+    "transcricao_marcador_urgencia": null
+  }
+}

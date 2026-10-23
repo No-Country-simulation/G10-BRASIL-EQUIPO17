@@ -1,0 +1,37 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "contrato_versao": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Contrato Versao",
+      "type": "string"
+    },
+    "documento_id": {
+      "maxLength": 64,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9-]*$",
+      "title": "Documento Id",
+      "type": "string"
+    },
+    "canal_origem": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Canal Origem",
+      "type": "string"
+    },
+    "documento_texto": {
+      "maxLength": 100000,
+      "minLength": 1,
+      "title": "Documento Texto",
+      "type": "string"
+    }
+  },
+  "required": [
+    "documento_id",
+    "canal_origem",
+    "documento_texto"
+  ],
+  "title": "EntradaTexto",
+  "type": "object"
+}

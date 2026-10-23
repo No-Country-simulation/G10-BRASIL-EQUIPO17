@@ -1,0 +1,56 @@
+[
+  {
+    "documento_id": "DOC-001",
+    "arquivo": "inputs/pdf/DOC-001_laudo_laboratorial_rotina.pdf",
+    "cenario": "rotina",
+    "esperado": {
+      "tipo_documento": "laudo_laboratorial",
+      "destino_principal": "prontuario_documental",
+      "requer_revisao_humana": false,
+      "regra_roteamento": "R005",
+      "campos_a_verificar": {
+        "paciente_nome": "Marina Lacerda Fictícia",
+        "exame": "Hemograma completo",
+        "data": "18/10/2026"
+      }
+    },
+    "observacao": "Laudo de rotina com identificação, valores e conclusão descritiva.",
+    "nota_avaliacao": "Valores de confiança e CID não são inventados; avaliar apenas extração/roteamento contra a referência."
+  },
+  {
+    "documento_id": "DOC-002",
+    "arquivo": "inputs/pdf/DOC-002_laudo_imagem_alerta.pdf",
+    "cenario": "alerta_expresso",
+    "esperado": {
+      "tipo_documento": "laudo_imagem",
+      "destino_principal": "fila_prioritaria_avaliacao_humana",
+      "requer_revisao_humana": true,
+      "regra_roteamento": "R001",
+      "campos_a_verificar": {
+        "paciente_nome": "Carlos Almeida Exemplo",
+        "exame": "Angiotomografia de tórax",
+        "conclusao": "Achados descritos como compatíveis com tromboembolismo pulmonar agudo"
+      }
+    },
+    "observacao": "Alerta explícito; não é diagnóstico gerado pelo sistema.",
+    "nota_avaliacao": "Valores de confiança e CID não são inventados; avaliar apenas extração/roteamento contra a referência."
+  },
+  {
+    "documento_id": "DOC-005",
+    "arquivo": "inputs/imagens/DOC-005_receita_ilegivel.png",
+    "cenario": "ambiguidade",
+    "esperado": {
+      "tipo_documento": "receituario",
+      "destino_principal": "auditoria_humana",
+      "requer_revisao_humana": true,
+      "regra_roteamento": "R002",
+      "campos_a_verificar": {
+        "paciente_nome": "Fernanda Oliveira Exemplo",
+        "medicamento": "Medicamento Alfa (fictício)",
+        "dose": null
+      }
+    },
+    "observacao": "Dosagem ofuscada intencionalmente na imagem.",
+    "nota_avaliacao": "Valores de confiança e CID não são inventados; avaliar apenas extração/roteamento contra a referência."
+  }
+]

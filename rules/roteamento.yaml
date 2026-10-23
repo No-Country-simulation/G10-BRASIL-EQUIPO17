@@ -1,0 +1,40 @@
+# Simulacao ADMINISTRATIVA para o Hackathon; NAO e protocolo clinico.
+versao: '0.1'
+precedencia: [R001, R002, R003, R004, R005, R006]
+regras:
+  - id: R001
+    condicao: marcador_urgencia_explicito_confirmado
+    destino: fila_prioritaria_avaliacao_humana
+    requer_revisao_humana: true
+    prioridade: possivel_urgencia
+    justificativa: Marcador explicito de alerta no documento. Exige avaliacao humana prioritaria.
+  - id: R002
+    condicao: ambiguidade_critica
+    destino: auditoria_humana
+    requer_revisao_humana: true
+    prioridade: indeterminada
+    justificativa: Campo essencial ausente, ilegivel ou conflitante; requer conferencia humana.
+  - id: R003
+    condicao: solicitacao_exame_completa
+    destino: auditoria_autorizacoes
+    requer_revisao_humana: false
+    prioridade: rotina
+    justificativa: Solicitacao documental com campos essenciais presentes.
+  - id: R004
+    condicao: receituario_completo
+    destino: fila_farmacia_documental
+    requer_revisao_humana: false
+    prioridade: rotina
+    justificativa: Receituario completo para fila documental, sem dispensacao automatica.
+  - id: R005
+    condicao: documento_rotina_completo
+    destino: prontuario_documental
+    requer_revisao_humana: false
+    prioridade: rotina
+    justificativa: Documento de rotina com integridade administrativa suficiente.
+  - id: R006
+    condicao: fallback
+    destino: auditoria_humana
+    requer_revisao_humana: true
+    prioridade: indeterminada
+    justificativa: Documento sem condicoes para roteamento documental automatico.

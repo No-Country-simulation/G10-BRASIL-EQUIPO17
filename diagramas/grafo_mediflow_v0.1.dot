@@ -1,0 +1,70 @@
+digraph mediflow {
+    graph [rankdir=TB, bgcolor="#FFFFFF", labelloc="t",
+      label="MediFlow | Grafo de decisao v0.1 — R001 a R006",
+      fontsize=22, fontname="DejaVu Sans", nodesep=.35, ranksep=.48, pad=.34,
+      splines=polyline, outputorder=edgesfirst];
+    node [shape=box,style="rounded,filled",fillcolor="#ECF3FC",
+      color="#879FBA",penwidth=1.1,fontname="DejaVu Sans",fontsize=12,
+      margin=".22,.12"];
+    edge [color="#688199",fontname="DejaVu Sans",fontsize=10,arrowsize=.72,penwidth=1.05];
+
+    entrada [label="Receber documento",fillcolor="#DDEBFB"];
+    valido [label="Entrada valida?",shape=diamond,fillcolor="#FFF0C4"];
+    prep [label="Preparar texto / imagem"];
+    marcar [label="Conferir alertas escritos no documento"];
+    llm [label="LLM multimodal: classificar e extrair"];
+    extr [label="Extracao disponivel?",shape=diamond,fillcolor="#FFF0C4"];
+    validar [label="Pydantic: validar dados extraidos"];
+    jsonval [label="JSON valido?",shape=diamond,fillcolor="#FFF0C4"];
+    rag [label="RAG opcional: recuperar fontes\n(falha RAG nao impede decisao)"];
+    regras [label="Aplicar motor de regras deterministicas\nprecedencia: R001 > R002 > R003 > R004 > R005 > R006", fillcolor="#DDEBFB"];
+
+    d1 [label="R001: urgencia explicita\nconfirmada?",shape=diamond,fillcolor="#FFF0C4"];
+    d2 [label="R002: ambiguidade\ncritica?",shape=diamond,fillcolor="#FFF0C4"];
+    d3 [label="R003: solicitacao\nde exame completa?",shape=diamond,fillcolor="#FFF0C4"];
+    d4 [label="R004: receituario\ncompleto?",shape=diamond,fillcolor="#FFF0C4",color="#9A6A1B",penwidth=2.0];
+    d5 [label="R005: documento\nde rotina completo?",shape=diamond,fillcolor="#FFF0C4"];
+
+    r1 [label="R001 | Fila prioritaria\nde avaliacao humana",fillcolor="#FCE2E0",color="#CD7670"];
+    r2 [label="R002 | Auditoria humana",fillcolor="#FFF0C4",color="#CAA34A"];
+    r3 [label="R003 | Auditoria\nde autorizacoes",fillcolor="#DDF5E6",color="#78AE93"];
+    r4 [label="R004 | Fila documental\nda farmacia",fillcolor="#C8F0D9",color="#348364",penwidth=2.0];
+    r5 [label="R005 | Prontuario\ndocumental",fillcolor="#DDF5E6",color="#78AE93"];
+    r6 [label="R006 | Auditoria humana\n(fallback)",fillcolor="#FFF0C4",color="#CAA34A"];
+
+    oci [label="OCI Object Storage\nsalvar original + JSON + historico",fillcolor="#DDEBFB"];
+    ociok [label="Gravacoes OCI\nconfirmadas?",shape=diamond,fillcolor="#FFF0C4"];
+    resp [label="Resposta JSON\ncom armazenamento confirmado",fillcolor="#DDF5E6",color="#64A481"];
+    falha [label="Falha tecnica / fila tecnica\npreservar alertas; nao afirmar sucesso",fillcolor="#FCE2E0",color="#CD7670"];
+
+    entrada -> valido;
+    valido -> prep [label="Sim"];
+    valido -> falha [label="Nao",constraint=false];
+    prep -> marcar -> llm -> extr;
+    extr -> validar [label="Sim"];
+    extr -> falha [label="Nao",constraint=false];
+    validar -> jsonval;
+    jsonval -> rag [label="Sim"];
+    jsonval -> falha [label="Nao",constraint=false];
+    rag -> regras -> d1;
+    d1 -> r1 [label="Sim"];
+    d1 -> d2 [label="Nao"];
+    d2 -> r2 [label="Sim"];
+    d2 -> d3 [label="Nao"];
+    d3 -> r3 [label="Sim"];
+    d3 -> d4 [label="Nao"];
+    d4 -> r4 [label="Sim"];
+    d4 -> d5 [label="Nao"];
+    d5 -> r5 [label="Sim"];
+    d5 -> r6 [label="Nao"];
+
+    r1 -> oci;
+    r2 -> oci;
+    r3 -> oci;
+    r4 -> oci;
+    r5 -> oci;
+    r6 -> oci;
+    oci -> ociok;
+    ociok -> resp [label="Sim"];
+    ociok -> falha [label="Nao"];
+}

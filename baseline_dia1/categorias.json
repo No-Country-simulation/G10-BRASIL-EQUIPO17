@@ -1,0 +1,133 @@
+{
+  "versao": "0.1-proposta",
+  "categorias": [
+    {
+      "id": "receituario",
+      "nome": "Receituário médico",
+      "apelidos": [
+        "receita",
+        "prescricao"
+      ],
+      "campos_recomendados": [
+        "paciente.nome",
+        "profissional.nome",
+        "profissional.crm",
+        "medicamentos[].nome",
+        "medicamentos[].dosagem_texto",
+        "data_emissao"
+      ],
+      "campos_sensiveis": [
+        "medicamentos[].dosagem_texto"
+      ],
+      "destino_normal": "fila_farmacia_documental"
+    },
+    {
+      "id": "laudo_laboratorial",
+      "nome": "Laudo laboratorial",
+      "apelidos": [
+        "hemograma",
+        "exame laboratorial"
+      ],
+      "campos_recomendados": [
+        "paciente.nome",
+        "profissional.nome",
+        "exame.nome",
+        "resultados[]",
+        "data_emissao",
+        "conclusao"
+      ],
+      "campos_sensiveis": [
+        "resultados[]",
+        "conclusao"
+      ],
+      "destino_normal": "prontuario_documental"
+    },
+    {
+      "id": "laudo_imagem",
+      "nome": "Laudo de imagem",
+      "apelidos": [
+        "radiografia",
+        "tomografia",
+        "ressonancia"
+      ],
+      "campos_recomendados": [
+        "paciente.nome",
+        "profissional.nome",
+        "exame.nome",
+        "achados",
+        "conclusao",
+        "data_emissao"
+      ],
+      "campos_sensiveis": [
+        "conclusao"
+      ],
+      "destino_normal": "prontuario_documental"
+    },
+    {
+      "id": "solicitacao_exame",
+      "nome": "Solicitação de exame/procedimento (inclui guia)",
+      "apelidos": [
+        "guia SADT",
+        "guia TISS",
+        "pedido de exame"
+      ],
+      "campos_recomendados": [
+        "paciente.nome",
+        "profissional.nome",
+        "procedimentos[]",
+        "identificacao_guia",
+        "data_solicitacao"
+      ],
+      "campos_sensiveis": [
+        "procedimentos[]"
+      ],
+      "destino_normal": "auditoria_autorizacoes"
+    },
+    {
+      "id": "relatorio_alta",
+      "nome": "Relatório de alta/internação",
+      "apelidos": [
+        "resumo de alta",
+        "internacao"
+      ],
+      "campos_recomendados": [
+        "paciente.nome",
+        "profissional.nome",
+        "data_admissao",
+        "data_alta",
+        "resumo"
+      ],
+      "campos_sensiveis": [
+        "resumo"
+      ],
+      "destino_normal": "prontuario_documental"
+    },
+    {
+      "id": "atestado",
+      "nome": "Atestado médico",
+      "apelidos": [
+        "atestado de afastamento"
+      ],
+      "campos_recomendados": [
+        "paciente.nome",
+        "profissional.nome",
+        "data_emissao",
+        "afastamento_periodo"
+      ],
+      "campos_sensiveis": [
+        "afastamento_periodo"
+      ],
+      "destino_normal": "prontuario_documental"
+    },
+    {
+      "id": "outro_desconhecido",
+      "nome": "Outro/desconhecido",
+      "apelidos": [],
+      "campos_recomendados": [
+        "descricao_documento"
+      ],
+      "campos_sensiveis": [],
+      "destino_normal": "auditoria_humana"
+    }
+  ]
+}

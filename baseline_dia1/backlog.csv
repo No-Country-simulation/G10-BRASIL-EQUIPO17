@@ -1,0 +1,27 @@
+﻿id,prioridade,tipo,titulo,responsavel,apoio,semanas,requisitos,dependencias,criterio_aceite
+B-001,P0,US,Definir contratos JSON e tipos,I1,"I2,I4",1,"RF-02,RF-03,RF-04",,JSON de entrada/saída e schemas por categoria revisados por I2/I4.
+B-002,P0,US,"Receber texto, PDF e imagem",I1,"I2,I6",1-2,RF-01,B-001,API aceita TXT/PDF/PNG válidos e rejeita entradas indevidas com erro explícito.
+B-003,P0,US,Gravar originais na OCI Always Free,I5,I1,1-2,RF-05,B-002,"Upload, leitura e verificação de caminho em bucket privado documentados."
+B-004,P0,US,Preparar texto de PDF e imagem,I2,I1,2,"RF-01,RF-03",B-002,"Pipeline entrega texto extraído, ou sinaliza baixa legibilidade."
+B-005,P0,US,Classificar categorias via LLM,I2,"I1,I4",2,RF-02,"B-001,B-004","Resultado usa códigos do catálogo, com desconhecido como fallback."
+B-006,P0,US,Extrair campos estruturados com LLM,I2,I1,2,RF-03,B-005,Campos documentais e evidências gerados sem criar valores não lidos.
+B-007,P0,US,Validar com Pydantic e consistência,I1,"I2,I4",2,"RF-03,RF-04","B-001,B-006",Dados malformados/ausentes têm tratamento seguro e erro rastreável.
+B-008,P0,US,Executar catálogo de regras local,I4,I1,2-3,RF-04,B-001,Regras R001 a R006 avaliadas com precedência documentada.
+B-009,P0,US,Roteamento de possível urgência,I4,"I2,I6",3,"RF-04,RF-06",B-008,DOC-002 resulta em fila prioritária e revisão humana com justificativa.
+B-010,P0,US,Roteamento de ambiguidade,I4,"I2,I6",3,"RF-04,RF-06",B-008,DOC-005 resulta em revisão; dosagem permanece nula.
+B-011,P0,US,Roteamento de rotina,I4,I1,3,"RF-04,RF-06",B-008,DOC-001 resulta em prontuário documental simulado.
+B-012,P0,US,Orquestrar etapas com LangGraph,I4,"I1,I2,I3",3,RF-04,"B-005,B-007,B-008",Grafo condicional percorre três caminhos sem pular validações.
+B-013,P0,US,Persistir JSON e histórico na OCI,I5,"I1,I4",3,RF-05,"B-003,B-012",Objetos recebidos/processados/auditoria organizados; upload confirmado.
+B-014,P0,US,API retorna classificação e decisão,I1,"I4,I5",3,"RF-03,RF-04","B-012,B-013","Resposta vinculada a ID com status, campos e regra aplicada."
+B-015,P0,QA,Testes e demonstração dos três cenários,I6,"I1,I2,I4,I5",3-5,RF-06,"B-009,B-010,B-011,B-014","3/3 resultados compatíveis com gabarito, com evidência da OCI."
+B-016,P0,DOC,"README, diagrama e reprodutibilidade",I1,"I3,I4,I5,I6",1-5,RF-07,B-012,"Execução, arquitetura, limitações e demo documentadas no GitHub."
+B-017,P1,US,RAG com fontes versionadas,I3,"I2,I4",2-3,RF-04,B-005,Busca recupera referências relevantes e registra IDs; sem bloquear alertas.
+B-018,P1,US,Expor citações RAG nas respostas,I3,"I1,I6",3-4,RF-04,B-017,Resultado distingue texto de entrada e conhecimento recuperado.
+B-019,P1,UX,Interface de upload e resultados Streamlit,I6,I1,4,"RF-01,RF-06",B-014,Usuário envia arquivo e vê retorno sem usar curl.
+B-020,P1,UX,Painel de auditoria humana,I6,"I1,I4,I5",4,RF-04,B-019,Fila permite revisar/corrigir e registrar autoria em dados fictícios.
+B-021,P1,QA,Testes negativos e métricas por campo,I6,"I2,I3,I4,I5",4-5,"RF-03,RF-04",B-015,"Regressão sobre nove fixtures, erros documentados e casos de falha."
+B-022,P1,SEC,Segurança básica e idempotência,I5,"I1,I6",3-5,RF-05,B-003,"Segredos não commitados, arquivos restritos, logs sem PII, erros seguros."
+B-023,P2,UX,Regras editáveis via painel,I6,I4,5+,-,B-020,"Configuração aprovada, validada e auditada; não compromete MVP."
+B-024,P2,INF,Deploy OCI Compute Always Free,I5,I1,5+,-,B-014,Hospedagem opcional apenas se a quota permitir e não houver cobrança.
+B-025,P2,AUT,Alertas por n8n/e-mail,I5,I4,5+,-,B-009,"Mensagens fictícias, sem dados sensíveis; demonstração interna suficiente."
+B-026,P2,AI,Manuscritos complexos e OCR avançado,I2,I6,5+,-,B-004,Teste controlado com manuscrito sintético; sem garantia de leitura universal.

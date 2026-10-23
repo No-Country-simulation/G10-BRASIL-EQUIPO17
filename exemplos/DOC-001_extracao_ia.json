@@ -1,0 +1,75 @@
+{
+  "contrato_versao": "0.1",
+  "documento_id": "DOC-001",
+  "tipo_documento": "laudo_laboratorial",
+  "especialidade_texto": null,
+  "dados_extraidos": {
+    "paciente": {
+      "nome": "Marina Lacerda Fictícia",
+      "nome_status": "legivel",
+      "identificador": "PF-0001",
+      "idade": 38
+    },
+    "profissional": {
+      "nome": "Dra. Elisa Monteiro Exemplo",
+      "crm_texto": "CRM-XX 000001"
+    },
+    "exame": {
+      "nome": "Hemograma completo",
+      "achados": null,
+      "conclusao": "Resultados descritos para acompanhamento de rotina. Documento sem declaração de urgência.",
+      "resultados": [
+        {
+          "parametro": "Hemoglobina",
+          "valor_texto": "13,4",
+          "unidade": "g/dL"
+        },
+        {
+          "parametro": "Leucócitos",
+          "valor_texto": "6.800",
+          "unidade": "/mm3"
+        },
+        {
+          "parametro": "Plaquetas",
+          "valor_texto": "245.000",
+          "unidade": "/mm3"
+        }
+      ]
+    },
+    "medicamentos": [],
+    "procedimentos": [],
+    "identificacao_guia": null,
+    "cid_documentado": null,
+    "data_emissao": "2026-10-18",
+    "data_solicitacao": null,
+    "data_admissao": null,
+    "data_alta": null,
+    "afastamento_periodo": null,
+    "resumo": null,
+    "descricao_documento": null
+  },
+  "evidencias": [
+    {
+      "campo": "paciente.nome",
+      "trecho_documento": "Marina Lacerda Fictícia | 38 anos | ID interno: PF-0001",
+      "pagina": 1,
+      "origem": "documento"
+    },
+    {
+      "campo": "exame.nome",
+      "trecho_documento": "Hemograma completo - material: sangue total",
+      "pagina": 1,
+      "origem": "documento"
+    },
+    {
+      "campo": "data_emissao",
+      "trecho_documento": "Emissão: 18/10/2026",
+      "pagina": 1,
+      "origem": "documento"
+    }
+  ],
+  "sinais_documentais": {
+    "marcador_urgencia_explicito": false,
+    "transcricao_marcador_urgencia": null
+  }
+}

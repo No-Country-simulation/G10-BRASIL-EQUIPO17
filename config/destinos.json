@@ -1,0 +1,20 @@
+{
+  "versao": "0.1",
+  "filas": [
+    {"id": "prontuario_documental", "funcao": "Fila simulada de documentacao para prontuario; sem integracao real"},
+    {"id": "auditoria_autorizacoes", "funcao": "Fila simulada de auditoria administrativa de solicitacoes; nao autoriza procedimentos"},
+    {"id": "fila_farmacia_documental", "funcao": "Fila administrativa de receituarios; nao dispensa medicamentos"},
+    {"id": "fila_prioritaria_avaliacao_humana", "funcao": "Alerta documental prioritario para profissional habilitado"},
+    {"id": "auditoria_humana", "funcao": "Fila de conferencia para dados incompletos ou ambiguos"},
+    {"id": "fila_erros_tecnicos", "funcao": "Falhas operacionais que nao podem ser tratadas como rotina"}
+  ],
+  "por_categoria_sem_excecao": {
+    "receituario": "fila_farmacia_documental",
+    "laudo_laboratorial": "prontuario_documental",
+    "laudo_imagem": "prontuario_documental",
+    "solicitacao_exame": "auditoria_autorizacoes",
+    "relatorio_alta": "prontuario_documental",
+    "atestado": "prontuario_documental",
+    "outro_desconhecido": "auditoria_humana"
+  }
+}

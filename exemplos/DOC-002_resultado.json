@@ -1,0 +1,108 @@
+{
+  "contrato_versao": "0.1",
+  "documento_id": "DOC-002",
+  "status": "aguardando_auditoria",
+  "entrada": {
+    "tipo_entrada": "pdf",
+    "canal_origem": "teste_sintetico",
+    "sha256": null,
+    "nome_arquivo": null
+  },
+  "classificacao": {
+    "tipo_documento": "laudo_imagem",
+    "nivel_prioridade_documental": "possivel_urgencia",
+    "especialidade_texto": null,
+    "indicador_qualidade": {
+      "valor": null,
+      "metodo": "nao_calculado",
+      "calibrado": false,
+      "criterios": []
+    }
+  },
+  "dados_extraidos": {
+    "paciente": {
+      "nome": "Carlos Almeida Exemplo",
+      "nome_status": "legivel",
+      "identificador": null,
+      "idade": 52
+    },
+    "profissional": {
+      "nome": "Dra. Renata Silveira Exemplo",
+      "crm_texto": "CRM-XX 000002"
+    },
+    "exame": {
+      "nome": "Angiotomografia de tórax com contraste",
+      "achados": "Falha de enchimento em ramo arterial pulmonar.",
+      "conclusao": "Achados descritos como compatíveis com tromboembolismo pulmonar agudo.",
+      "resultados": []
+    },
+    "medicamentos": [],
+    "procedimentos": [],
+    "identificacao_guia": null,
+    "cid_documentado": null,
+    "data_emissao": "2026-10-19",
+    "data_solicitacao": null,
+    "data_admissao": null,
+    "data_alta": null,
+    "afastamento_periodo": null,
+    "resumo": null,
+    "descricao_documento": null
+  },
+  "validacao": {
+    "integridade_documental": "suficiente",
+    "campos_ausentes": [],
+    "campos_ilegiveis": [],
+    "conflitos": [],
+    "observacoes": []
+  },
+  "evidencias": [
+    {
+      "campo": "paciente.nome",
+      "trecho_documento": "Carlos Almeida Exemplo | 52 anos",
+      "pagina": 1,
+      "origem": "documento"
+    },
+    {
+      "campo": "exame.conclusao",
+      "trecho_documento": "Achados descritos como compatíveis com tromboembolismo pulmonar agudo.",
+      "pagina": 1,
+      "origem": "documento"
+    },
+    {
+      "campo": "sinais_documentais.marcador_urgencia_explicito",
+      "trecho_documento": "ACHADO CRÍTICO - URGENTE. Comunicar equipe assistencial imediatamente",
+      "pagina": 1,
+      "origem": "documento"
+    }
+  ],
+  "rag": {
+    "status": "nao_consultado",
+    "fontes": [],
+    "erro_codigo": null
+  },
+  "decisao_roteamento": {
+    "destino_principal": "fila_prioritaria_avaliacao_humana",
+    "requer_revisao_humana": true,
+    "regra_principal": "R001",
+    "regras_disparadas": [
+      "R001",
+      "R005"
+    ],
+    "justificativa": "Marcador explicito de alerta no documento. Exige avaliacao humana prioritaria.",
+    "versao_regras": "0.1",
+    "alertas": [
+      {
+        "codigo": "ALERTA_DOCUMENTAL",
+        "mensagem": "Possivel urgencia textual: revisao humana prioritaria."
+      }
+    ]
+  },
+  "armazenamento_oci": {
+    "status": "pendente",
+    "bucket": null,
+    "chave_original": null,
+    "chave_resultado": null,
+    "chave_historico": null
+  },
+  "eventos": []
+}

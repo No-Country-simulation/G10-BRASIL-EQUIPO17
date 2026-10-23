@@ -1,0 +1,28 @@
+# Campos usados para simular completude DOCUMENTAL, sem inferencia clinica.
+versao: '0.1'
+status_de_campo: [legivel, ausente, ilegivel, conflitante]
+validacoes:
+  - id: V001
+    condicao: paciente_nome_nao_legivel
+    nivel: critico
+    encaminhamento: auditoria_humana
+  - id: V002
+    condicao: receituario_com_medicamento_sem_dose_legivel
+    nivel: critico
+    encaminhamento: auditoria_humana
+  - id: V003
+    condicao: profissional_nome_ausente
+    nivel: aviso
+    encaminhamento: manter_aviso
+  - id: V004
+    condicao: laudo_imagem_sem_conclusao
+    nivel: critico
+    encaminhamento: auditoria_humana
+campos_minimos_por_categoria:
+  receituario: ["paciente.nome", "medicamentos[].nome", "medicamentos[].dosagem_texto"]
+  laudo_laboratorial: ["paciente.nome", "exame.nome", "exame.conclusao", "exame.resultados[]"]
+  laudo_imagem: [paciente.nome, exame.nome, exame.conclusao]
+  solicitacao_exame: ["paciente.nome", "procedimentos[]"]
+  relatorio_alta: [paciente.nome, resumo, data_admissao, data_alta]
+  atestado: [paciente.nome, data_emissao, afastamento_periodo]
+  outro_desconhecido: []

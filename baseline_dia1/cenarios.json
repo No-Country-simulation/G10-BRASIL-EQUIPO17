@@ -1,0 +1,79 @@
+{
+  "versao": "0.1-proposta",
+  "cenarios": [
+    {
+      "id": "DOC-001",
+      "cenario": "rotina",
+      "nome": "Laudo laboratorial de rotina",
+      "arquivo": "amostras/pdf/DOC-001_laudo_laboratorial_rotina.pdf",
+      "tipo_esperado": "laudo_laboratorial",
+      "destino_esperado": "prontuario_documental",
+      "revisao_humana_esperada": false,
+      "regra_esperada": "R005",
+      "campos_confirmar": {
+        "paciente_nome": "Marina Lacerda Fictícia",
+        "exame": "Hemograma completo",
+        "data": "18/10/2026"
+      },
+      "criterios_aceite": [
+        "O arquivo é aceito e interpretado",
+        "Classificação coincide com o tipo esperado",
+        "Campos esperados são extraídos sem fabricar dados",
+        "Destino e obrigatoriedade de revisão coincidem com o gabarito",
+        "Resposta contém regra e justificativa",
+        "Resultado e histórico são gravados no OCI quando integração estiver disponível"
+      ],
+      "observacao": "Sintético, sem validade clínica; comportamento esperado é roteamento documental de teste."
+    },
+    {
+      "id": "DOC-002",
+      "cenario": "possivel_urgencia",
+      "nome": "Laudo de imagem com alerta expresso",
+      "arquivo": "amostras/pdf/DOC-002_laudo_imagem_alerta.pdf",
+      "tipo_esperado": "laudo_imagem",
+      "destino_esperado": "fila_prioritaria_avaliacao_humana",
+      "revisao_humana_esperada": true,
+      "regra_esperada": "R001",
+      "campos_confirmar": {
+        "paciente_nome": "Carlos Almeida Exemplo",
+        "exame": "Angiotomografia de tórax",
+        "conclusao": "Achados descritos como compatíveis com tromboembolismo pulmonar agudo"
+      },
+      "criterios_aceite": [
+        "O arquivo é aceito e interpretado",
+        "Classificação coincide com o tipo esperado",
+        "Campos esperados são extraídos sem fabricar dados",
+        "Destino e obrigatoriedade de revisão coincidem com o gabarito",
+        "Resposta contém regra e justificativa",
+        "Resultado e histórico são gravados no OCI quando integração estiver disponível",
+        "Registro da urgência é preservado em caso de indisponibilidade do RAG"
+      ],
+      "observacao": "Sintético, sem validade clínica; comportamento esperado é roteamento documental de teste."
+    },
+    {
+      "id": "DOC-005",
+      "cenario": "ambiguidade",
+      "nome": "Receita com dosagem ilegível",
+      "arquivo": "amostras/imagens/DOC-005_receita_ilegivel.png",
+      "tipo_esperado": "receituario",
+      "destino_esperado": "auditoria_humana",
+      "revisao_humana_esperada": true,
+      "regra_esperada": "R002",
+      "campos_confirmar": {
+        "paciente_nome": "Fernanda Oliveira Exemplo",
+        "medicamento": "Medicamento Alfa (fictício)",
+        "dose": null
+      },
+      "criterios_aceite": [
+        "O arquivo é aceito e interpretado",
+        "Classificação coincide com o tipo esperado",
+        "Campos esperados são extraídos sem fabricar dados",
+        "Destino e obrigatoriedade de revisão coincidem com o gabarito",
+        "Resposta contém regra e justificativa",
+        "Resultado e histórico são gravados no OCI quando integração estiver disponível",
+        "A dosagem ilegível permanece null ou com status ilegível; sem inferência de dose"
+      ],
+      "observacao": "Sintético, sem validade clínica; comportamento esperado é roteamento documental de teste."
+    }
+  ]
+}

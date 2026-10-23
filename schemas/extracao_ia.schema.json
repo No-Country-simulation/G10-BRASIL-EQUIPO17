@@ -1,0 +1,477 @@
+{
+  "$defs": {
+    "DadosExtraidos": {
+      "additionalProperties": false,
+      "properties": {
+        "paciente": {
+          "$ref": "#/$defs/Paciente"
+        },
+        "profissional": {
+          "$ref": "#/$defs/Profissional"
+        },
+        "exame": {
+          "$ref": "#/$defs/Exame"
+        },
+        "medicamentos": {
+          "items": {
+            "$ref": "#/$defs/Medicamento"
+          },
+          "title": "Medicamentos",
+          "type": "array"
+        },
+        "procedimentos": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Procedimentos",
+          "type": "array"
+        },
+        "identificacao_guia": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Identificacao Guia"
+        },
+        "cid_documentado": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cid Documentado"
+        },
+        "data_emissao": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Emissao"
+        },
+        "data_solicitacao": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Solicitacao"
+        },
+        "data_admissao": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Admissao"
+        },
+        "data_alta": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Alta"
+        },
+        "afastamento_periodo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Afastamento Periodo"
+        },
+        "resumo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resumo"
+        },
+        "descricao_documento": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Descricao Documento"
+        }
+      },
+      "title": "DadosExtraidos",
+      "type": "object"
+    },
+    "Evidencia": {
+      "additionalProperties": false,
+      "properties": {
+        "campo": {
+          "title": "Campo",
+          "type": "string"
+        },
+        "trecho_documento": {
+          "minLength": 1,
+          "title": "Trecho Documento",
+          "type": "string"
+        },
+        "pagina": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pagina"
+        },
+        "origem": {
+          "const": "documento",
+          "default": "documento",
+          "title": "Origem",
+          "type": "string"
+        }
+      },
+      "required": [
+        "campo",
+        "trecho_documento"
+      ],
+      "title": "Evidencia",
+      "type": "object"
+    },
+    "Exame": {
+      "additionalProperties": false,
+      "properties": {
+        "nome": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nome"
+        },
+        "achados": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Achados"
+        },
+        "conclusao": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conclusao"
+        },
+        "resultados": {
+          "items": {
+            "$ref": "#/$defs/ResultadoLaboratorial"
+          },
+          "title": "Resultados",
+          "type": "array"
+        }
+      },
+      "title": "Exame",
+      "type": "object"
+    },
+    "Medicamento": {
+      "additionalProperties": false,
+      "properties": {
+        "nome": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nome"
+        },
+        "dosagem_texto": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dosagem Texto"
+        },
+        "dosagem_status": {
+          "default": "ausente",
+          "enum": [
+            "legivel",
+            "ausente",
+            "ilegivel",
+            "conflitante"
+          ],
+          "title": "Dosagem Status",
+          "type": "string"
+        }
+      },
+      "title": "Medicamento",
+      "type": "object"
+    },
+    "Paciente": {
+      "additionalProperties": false,
+      "properties": {
+        "nome": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nome"
+        },
+        "nome_status": {
+          "default": "ausente",
+          "enum": [
+            "legivel",
+            "ausente",
+            "ilegivel",
+            "conflitante"
+          ],
+          "title": "Nome Status",
+          "type": "string"
+        },
+        "identificador": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Identificador"
+        },
+        "idade": {
+          "anyOf": [
+            {
+              "maximum": 130,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idade"
+        }
+      },
+      "title": "Paciente",
+      "type": "object"
+    },
+    "Profissional": {
+      "additionalProperties": false,
+      "properties": {
+        "nome": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nome"
+        },
+        "crm_texto": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Crm Texto"
+        }
+      },
+      "title": "Profissional",
+      "type": "object"
+    },
+    "ResultadoLaboratorial": {
+      "additionalProperties": false,
+      "properties": {
+        "parametro": {
+          "title": "Parametro",
+          "type": "string"
+        },
+        "valor_texto": {
+          "title": "Valor Texto",
+          "type": "string"
+        },
+        "unidade": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unidade"
+        }
+      },
+      "required": [
+        "parametro",
+        "valor_texto"
+      ],
+      "title": "ResultadoLaboratorial",
+      "type": "object"
+    },
+    "SinaisDocumentais": {
+      "additionalProperties": false,
+      "properties": {
+        "marcador_urgencia_explicito": {
+          "default": false,
+          "title": "Marcador Urgencia Explicito",
+          "type": "boolean"
+        },
+        "transcricao_marcador_urgencia": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Transcricao Marcador Urgencia"
+        }
+      },
+      "title": "SinaisDocumentais",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contrato_versao": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Contrato Versao",
+      "type": "string"
+    },
+    "documento_id": {
+      "title": "Documento Id",
+      "type": "string"
+    },
+    "tipo_documento": {
+      "enum": [
+        "receituario",
+        "laudo_laboratorial",
+        "laudo_imagem",
+        "solicitacao_exame",
+        "relatorio_alta",
+        "atestado",
+        "outro_desconhecido"
+      ],
+      "title": "Tipo Documento",
+      "type": "string"
+    },
+    "especialidade_texto": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Especialidade Texto"
+    },
+    "dados_extraidos": {
+      "$ref": "#/$defs/DadosExtraidos"
+    },
+    "evidencias": {
+      "items": {
+        "$ref": "#/$defs/Evidencia"
+      },
+      "title": "Evidencias",
+      "type": "array"
+    },
+    "sinais_documentais": {
+      "$ref": "#/$defs/SinaisDocumentais"
+    }
+  },
+  "required": [
+    "documento_id",
+    "tipo_documento",
+    "dados_extraidos"
+  ],
+  "title": "ExtracaoIA",
+  "type": "object"
+}

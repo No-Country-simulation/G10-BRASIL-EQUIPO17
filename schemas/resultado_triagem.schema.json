@@ -1,0 +1,929 @@
+{
+  "$defs": {
+    "Alerta": {
+      "additionalProperties": false,
+      "properties": {
+        "codigo": {
+          "title": "Codigo",
+          "type": "string"
+        },
+        "mensagem": {
+          "title": "Mensagem",
+          "type": "string"
+        }
+      },
+      "required": [
+        "codigo",
+        "mensagem"
+      ],
+      "title": "Alerta",
+      "type": "object"
+    },
+    "ArmazenamentoOCI": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "default": "pendente",
+          "enum": [
+            "pendente",
+            "confirmado",
+            "falha"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "bucket": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bucket"
+        },
+        "chave_original": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chave Original"
+        },
+        "chave_resultado": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chave Resultado"
+        },
+        "chave_historico": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chave Historico"
+        }
+      },
+      "title": "ArmazenamentoOCI",
+      "type": "object"
+    },
+    "Classificacao": {
+      "additionalProperties": false,
+      "properties": {
+        "tipo_documento": {
+          "enum": [
+            "receituario",
+            "laudo_laboratorial",
+            "laudo_imagem",
+            "solicitacao_exame",
+            "relatorio_alta",
+            "atestado",
+            "outro_desconhecido"
+          ],
+          "title": "Tipo Documento",
+          "type": "string"
+        },
+        "nivel_prioridade_documental": {
+          "enum": [
+            "rotina",
+            "possivel_urgencia",
+            "indeterminada"
+          ],
+          "title": "Nivel Prioridade Documental",
+          "type": "string"
+        },
+        "especialidade_texto": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Especialidade Texto"
+        },
+        "indicador_qualidade": {
+          "$ref": "#/$defs/IndicadorQualidade"
+        }
+      },
+      "required": [
+        "tipo_documento",
+        "nivel_prioridade_documental"
+      ],
+      "title": "Classificacao",
+      "type": "object"
+    },
+    "DadosExtraidos": {
+      "additionalProperties": false,
+      "properties": {
+        "paciente": {
+          "$ref": "#/$defs/Paciente"
+        },
+        "profissional": {
+          "$ref": "#/$defs/Profissional"
+        },
+        "exame": {
+          "$ref": "#/$defs/Exame"
+        },
+        "medicamentos": {
+          "items": {
+            "$ref": "#/$defs/Medicamento"
+          },
+          "title": "Medicamentos",
+          "type": "array"
+        },
+        "procedimentos": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Procedimentos",
+          "type": "array"
+        },
+        "identificacao_guia": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Identificacao Guia"
+        },
+        "cid_documentado": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cid Documentado"
+        },
+        "data_emissao": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Emissao"
+        },
+        "data_solicitacao": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Solicitacao"
+        },
+        "data_admissao": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Admissao"
+        },
+        "data_alta": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Alta"
+        },
+        "afastamento_periodo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Afastamento Periodo"
+        },
+        "resumo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resumo"
+        },
+        "descricao_documento": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Descricao Documento"
+        }
+      },
+      "title": "DadosExtraidos",
+      "type": "object"
+    },
+    "DecisaoRoteamento": {
+      "additionalProperties": false,
+      "properties": {
+        "destino_principal": {
+          "enum": [
+            "fila_prioritaria_avaliacao_humana",
+            "auditoria_humana",
+            "auditoria_autorizacoes",
+            "fila_farmacia_documental",
+            "prontuario_documental",
+            "fila_erros_tecnicos"
+          ],
+          "title": "Destino Principal",
+          "type": "string"
+        },
+        "requer_revisao_humana": {
+          "title": "Requer Revisao Humana",
+          "type": "boolean"
+        },
+        "regra_principal": {
+          "enum": [
+            "R001",
+            "R002",
+            "R003",
+            "R004",
+            "R005",
+            "R006",
+            "R900"
+          ],
+          "title": "Regra Principal",
+          "type": "string"
+        },
+        "regras_disparadas": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Regras Disparadas",
+          "type": "array"
+        },
+        "justificativa": {
+          "minLength": 1,
+          "title": "Justificativa",
+          "type": "string"
+        },
+        "versao_regras": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Versao Regras",
+          "type": "string"
+        },
+        "alertas": {
+          "items": {
+            "$ref": "#/$defs/Alerta"
+          },
+          "title": "Alertas",
+          "type": "array"
+        }
+      },
+      "required": [
+        "destino_principal",
+        "requer_revisao_humana",
+        "regra_principal",
+        "regras_disparadas",
+        "justificativa"
+      ],
+      "title": "DecisaoRoteamento",
+      "type": "object"
+    },
+    "EntradaProcessada": {
+      "additionalProperties": false,
+      "properties": {
+        "tipo_entrada": {
+          "enum": [
+            "texto",
+            "pdf",
+            "png",
+            "jpeg"
+          ],
+          "title": "Tipo Entrada",
+          "type": "string"
+        },
+        "canal_origem": {
+          "title": "Canal Origem",
+          "type": "string"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
+        },
+        "nome_arquivo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nome Arquivo"
+        }
+      },
+      "required": [
+        "tipo_entrada",
+        "canal_origem"
+      ],
+      "title": "EntradaProcessada",
+      "type": "object"
+    },
+    "Evento": {
+      "additionalProperties": false,
+      "properties": {
+        "codigo": {
+          "title": "Codigo",
+          "type": "string"
+        },
+        "descricao": {
+          "title": "Descricao",
+          "type": "string"
+        },
+        "timestamp_utc": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timestamp Utc"
+        }
+      },
+      "required": [
+        "codigo",
+        "descricao"
+      ],
+      "title": "Evento",
+      "type": "object"
+    },
+    "Evidencia": {
+      "additionalProperties": false,
+      "properties": {
+        "campo": {
+          "title": "Campo",
+          "type": "string"
+        },
+        "trecho_documento": {
+          "minLength": 1,
+          "title": "Trecho Documento",
+          "type": "string"
+        },
+        "pagina": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pagina"
+        },
+        "origem": {
+          "const": "documento",
+          "default": "documento",
+          "title": "Origem",
+          "type": "string"
+        }
+      },
+      "required": [
+        "campo",
+        "trecho_documento"
+      ],
+      "title": "Evidencia",
+      "type": "object"
+    },
+    "Exame": {
+      "additionalProperties": false,
+      "properties": {
+        "nome": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nome"
+        },
+        "achados": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Achados"
+        },
+        "conclusao": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conclusao"
+        },
+        "resultados": {
+          "items": {
+            "$ref": "#/$defs/ResultadoLaboratorial"
+          },
+          "title": "Resultados",
+          "type": "array"
+        }
+      },
+      "title": "Exame",
+      "type": "object"
+    },
+    "FonteRAG": {
+      "additionalProperties": false,
+      "properties": {
+        "fonte_id": {
+          "title": "Fonte Id",
+          "type": "string"
+        },
+        "titulo": {
+          "title": "Titulo",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "versao": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Versao"
+        },
+        "trecho_relevante": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trecho Relevante"
+        }
+      },
+      "required": [
+        "fonte_id",
+        "titulo"
+      ],
+      "title": "FonteRAG",
+      "type": "object"
+    },
+    "IndicadorQualidade": {
+      "additionalProperties": false,
+      "properties": {
+        "valor": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valor"
+        },
+        "metodo": {
+          "default": "nao_calculado",
+          "enum": [
+            "nao_calculado",
+            "heuristica_completude_consistencia_v0"
+          ],
+          "title": "Metodo",
+          "type": "string"
+        },
+        "calibrado": {
+          "const": false,
+          "default": false,
+          "title": "Calibrado",
+          "type": "boolean"
+        },
+        "criterios": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Criterios",
+          "type": "array"
+        }
+      },
+      "title": "IndicadorQualidade",
+      "type": "object"
+    },
+    "Medicamento": {
+      "additionalProperties": false,
+      "properties": {
+        "nome": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nome"
+        },
+        "dosagem_texto": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dosagem Texto"
+        },
+        "dosagem_status": {
+          "default": "ausente",
+          "enum": [
+            "legivel",
+            "ausente",
+            "ilegivel",
+            "conflitante"
+          ],
+          "title": "Dosagem Status",
+          "type": "string"
+        }
+      },
+      "title": "Medicamento",
+      "type": "object"
+    },
+    "Paciente": {
+      "additionalProperties": false,
+      "properties": {
+        "nome": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nome"
+        },
+        "nome_status": {
+          "default": "ausente",
+          "enum": [
+            "legivel",
+            "ausente",
+            "ilegivel",
+            "conflitante"
+          ],
+          "title": "Nome Status",
+          "type": "string"
+        },
+        "identificador": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Identificador"
+        },
+        "idade": {
+          "anyOf": [
+            {
+              "maximum": 130,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idade"
+        }
+      },
+      "title": "Paciente",
+      "type": "object"
+    },
+    "Profissional": {
+      "additionalProperties": false,
+      "properties": {
+        "nome": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nome"
+        },
+        "crm_texto": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Crm Texto"
+        }
+      },
+      "title": "Profissional",
+      "type": "object"
+    },
+    "RecuperacaoRAG": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "default": "nao_consultado",
+          "enum": [
+            "nao_consultado",
+            "consultado",
+            "sem_resultados",
+            "falha"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "fontes": {
+          "items": {
+            "$ref": "#/$defs/FonteRAG"
+          },
+          "title": "Fontes",
+          "type": "array"
+        },
+        "erro_codigo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Erro Codigo"
+        }
+      },
+      "title": "RecuperacaoRAG",
+      "type": "object"
+    },
+    "ResultadoLaboratorial": {
+      "additionalProperties": false,
+      "properties": {
+        "parametro": {
+          "title": "Parametro",
+          "type": "string"
+        },
+        "valor_texto": {
+          "title": "Valor Texto",
+          "type": "string"
+        },
+        "unidade": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unidade"
+        }
+      },
+      "required": [
+        "parametro",
+        "valor_texto"
+      ],
+      "title": "ResultadoLaboratorial",
+      "type": "object"
+    },
+    "Validacao": {
+      "additionalProperties": false,
+      "properties": {
+        "integridade_documental": {
+          "enum": [
+            "suficiente",
+            "insuficiente",
+            "indeterminada"
+          ],
+          "title": "Integridade Documental",
+          "type": "string"
+        },
+        "campos_ausentes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Campos Ausentes",
+          "type": "array"
+        },
+        "campos_ilegiveis": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Campos Ilegiveis",
+          "type": "array"
+        },
+        "conflitos": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Conflitos",
+          "type": "array"
+        },
+        "observacoes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Observacoes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "integridade_documental"
+      ],
+      "title": "Validacao",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contrato_versao": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Contrato Versao",
+      "type": "string"
+    },
+    "documento_id": {
+      "title": "Documento Id",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "recebido",
+        "processando",
+        "processado",
+        "aguardando_auditoria",
+        "falha"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "entrada": {
+      "$ref": "#/$defs/EntradaProcessada"
+    },
+    "classificacao": {
+      "$ref": "#/$defs/Classificacao"
+    },
+    "dados_extraidos": {
+      "$ref": "#/$defs/DadosExtraidos"
+    },
+    "validacao": {
+      "$ref": "#/$defs/Validacao"
+    },
+    "evidencias": {
+      "items": {
+        "$ref": "#/$defs/Evidencia"
+      },
+      "title": "Evidencias",
+      "type": "array"
+    },
+    "rag": {
+      "$ref": "#/$defs/RecuperacaoRAG"
+    },
+    "decisao_roteamento": {
+      "$ref": "#/$defs/DecisaoRoteamento"
+    },
+    "armazenamento_oci": {
+      "$ref": "#/$defs/ArmazenamentoOCI"
+    },
+    "eventos": {
+      "items": {
+        "$ref": "#/$defs/Evento"
+      },
+      "title": "Eventos",
+      "type": "array"
+    }
+  },
+  "required": [
+    "documento_id",
+    "status",
+    "entrada",
+    "classificacao",
+    "dados_extraidos",
+    "validacao",
+    "decisao_roteamento"
+  ],
+  "title": "ResultadoTriagem",
+  "type": "object"
+}

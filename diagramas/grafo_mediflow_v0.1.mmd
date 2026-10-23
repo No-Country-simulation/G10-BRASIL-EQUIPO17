@@ -1,0 +1,45 @@
+flowchart TD
+    A[Receber documento] --> B{Entrada valida?}
+    B -- Nao --> X[Registrar falha tecnica e preservar alertas conhecidos]
+    B -- Sim --> C[Preparar texto ou imagem]
+    C --> D[Conferir marcadores de alerta no documento]
+    D --> E[LLM multimodal: classificar e extrair]
+    E --> F{Extracao disponivel?}
+    F -- Nao --> X
+    F -- Sim --> G[Pydantic: validar a extracao]
+    G --> H{JSON valido?}
+    H -- Nao --> X
+    H -- Sim --> I[RAG opcional: recuperar referencias]
+    I --> J[Motor de regras deterministicas R001 a R006]
+    J --> K{R001: urgencia explicita confirmada?}
+    K -- Sim --> L[R001: fila prioritaria de avaliacao humana]
+    K -- Nao --> M{R002: ambiguidade critica?}
+    M -- Sim --> N[R002: auditoria humana]
+    M -- Nao --> O{R003: solicitacao de exame completa?}
+    O -- Sim --> P[R003: auditoria de autorizacoes]
+    O -- Nao --> Q{R004: receituario completo?}
+    Q -- Sim --> R[R004: fila documental da farmacia]
+    Q -- Nao --> S{R005: documento de rotina completo?}
+    S -- Sim --> T[R005: prontuario documental]
+    S -- Nao --> U[R006: auditoria humana por fallback]
+    L --> V[OCI: salvar original, JSON e historico]
+    N --> V
+    P --> V
+    R --> V
+    T --> V
+    U --> V
+    V --> W{OCI confirmou todas as gravacoes?}
+    W -- Sim --> Y[Resposta JSON com armazenamento confirmado]
+    W -- Nao --> X
+
+    classDef etapa fill:#E8F1FF,stroke:#6485AE,color:#1B3657
+    classDef decisao fill:#FFF0C4,stroke:#B78F36,color:#583F00
+    classDef alerta fill:#FCE3E1,stroke:#CE6C65,color:#702927
+    classDef humana fill:#FFF0C4,stroke:#B78F36,color:#583F00
+    classDef rotina fill:#DDF5E6,stroke:#64A481,color:#154B2B
+    classDef sucesso fill:#DDF5E6,stroke:#64A481,color:#154B2B
+    class A,C,D,E,G,I,J,V etapa
+    class B,F,H,K,M,O,Q,S,W decisao
+    class L,X alerta
+    class N,U humana
+    class P,R,T,Y sucesso

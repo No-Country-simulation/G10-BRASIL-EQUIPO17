@@ -1,0 +1,104 @@
+{
+  "contrato_versao": "0.1",
+  "documento_id": "DOC-005",
+  "status": "aguardando_auditoria",
+  "entrada": {
+    "tipo_entrada": "png",
+    "canal_origem": "teste_sintetico",
+    "sha256": null,
+    "nome_arquivo": null
+  },
+  "classificacao": {
+    "tipo_documento": "receituario",
+    "nivel_prioridade_documental": "indeterminada",
+    "especialidade_texto": null,
+    "indicador_qualidade": {
+      "valor": null,
+      "metodo": "nao_calculado",
+      "calibrado": false,
+      "criterios": []
+    }
+  },
+  "dados_extraidos": {
+    "paciente": {
+      "nome": "Fernanda Oliveira Exemplo",
+      "nome_status": "legivel",
+      "identificador": null,
+      "idade": null
+    },
+    "profissional": {
+      "nome": null,
+      "crm_texto": null
+    },
+    "exame": {
+      "nome": null,
+      "achados": null,
+      "conclusao": null,
+      "resultados": []
+    },
+    "medicamentos": [
+      {
+        "nome": "Medicamento Alfa (fictício)",
+        "dosagem_texto": null,
+        "dosagem_status": "ilegivel"
+      }
+    ],
+    "procedimentos": [],
+    "identificacao_guia": null,
+    "cid_documentado": null,
+    "data_emissao": null,
+    "data_solicitacao": null,
+    "data_admissao": null,
+    "data_alta": null,
+    "afastamento_periodo": null,
+    "resumo": null,
+    "descricao_documento": null
+  },
+  "validacao": {
+    "integridade_documental": "insuficiente",
+    "campos_ausentes": [],
+    "campos_ilegiveis": [
+      "medicamentos[0].dosagem_texto"
+    ],
+    "conflitos": [],
+    "observacoes": []
+  },
+  "evidencias": [
+    {
+      "campo": "paciente.nome",
+      "trecho_documento": "Fernanda Oliveira Exemplo",
+      "pagina": 1,
+      "origem": "documento"
+    },
+    {
+      "campo": "medicamentos[0].nome",
+      "trecho_documento": "Medicamento Alfa (fictício)",
+      "pagina": 1,
+      "origem": "documento"
+    }
+  ],
+  "rag": {
+    "status": "nao_consultado",
+    "fontes": [],
+    "erro_codigo": null
+  },
+  "decisao_roteamento": {
+    "destino_principal": "auditoria_humana",
+    "requer_revisao_humana": true,
+    "regra_principal": "R002",
+    "regras_disparadas": [
+      "R002"
+    ],
+    "justificativa": "Campo essencial ausente, ilegivel ou conflitante; requer conferencia humana.",
+    "versao_regras": "0.1",
+    "alertas": []
+  },
+  "armazenamento_oci": {
+    "status": "pendente",
+    "bucket": null,
+    "chave_original": null,
+    "chave_resultado": null,
+    "chave_historico": null
+  },
+  "eventos": []
+}
