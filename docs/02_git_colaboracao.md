@@ -1,41 +1,25 @@
-# Estratégia de Git e colaboração — Dia 3
+# Git e colaboração — Guia atualizado
 
-## Branches
-- `main`: versões estáveis demonstráveis. Sem push direto na rotina da equipe.
-- `develop`: integração de funcionalidades que passaram testes.
-- `feat/dia04-oci`: exemplo de branch para I5, aberta a partir de `develop`.
-- Demais atividades: `feat/<id-backlog>-descricao`, `fix/<descricao>`, `docs/<descricao>`.
+A convenção vigente do MediFlow está centralizada em **[CONTRIBUTING.md](../CONTRIBUTING.md)**. Este arquivo permanece para manter compatibilidade com links do roteiro anterior.
 
-## Pull request
-1. Atualize `develop` e crie `feat/...` a partir dela.
-2. Faça commits pequenos e objetivos; inclua ID do backlog no título.
-3. Rode `python -m pytest -q` e `python -m compileall -q src scripts tests`.
-4. Abra PR para `develop`; pelo menos um revisor de outra área valida contratos/efeitos colaterais.
-5. Após aprovação e CI verde, merge via PR. Evitar alteração manual de schemas gerados.
-6. Ao fechar marco semanal, PR de `develop` para `main` + tag, por exemplo `v0.1.0-dia03`.
+## Resumo
 
-## Inicialização em Windows PowerShell
+- `main`: versão estável; `develop`: integração.
+- Branches temporárias: `feat/area-funcionalidade`, `fix/area-problema`, `docs/assunto`, `test/escopo`, `refactor/escopo`, `chore/escopo`.
+- **Não usar nomes de dias, semanas, datas ou integrantes em branches.**
+- Trabalhar em branch individual criada a partir da `develop`, com Pull Request para `develop`, pelo menos uma revisão e CI aprovada.
+- Evitar `push` direto e reescrita de histórico nas branches compartilhadas.
+
+## Repositório oficial
+
+https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17
+
 ```powershell
-git clone .\MediFlow_Dia03.bundle MediFlow
-cd MediFlow
-git branch -a
+git clone https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17.git
+cd G10-BRASIL-EQUIPO17
 git switch develop
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e '.[dev]'
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m uvicorn mediflow.api.app:app --reload
 ```
-A API estará em `http://127.0.0.1:8000/docs`, quando o servidor for iniciado.
 
-> O bundle Git é um snapshot **local**, sem remote GitHub. Ao clonar um bundle, o `origin` fica apontando para o arquivo local. Depois de criar um repositório GitHub conforme decisão da equipe, utilize `git remote set-url origin <url-do-repositorio>` e `git push -u origin main develop`. Se inicializou pelo ZIP, use primeiro `git remote add origin <url-do-repositorio>`.
+Consulte [CONTRIBUTING.md](../CONTRIBUTING.md) para instalação, testes, comandos de branch e critérios do PR.
 
-## Caso use o ZIP em vez do bundle
-```powershell
-Expand-Archive .\MediFlow_Dia03.zip -DestinationPath .
-cd .\MediFlow_Dia03
-git init -b main
-git add .
-git commit -m "chore: base do Dia 3"
-git switch -c develop
-```
-A criação de branches remotas e as proteções só poderão ser confirmadas no GitHub após publicar o repositório.
+> As instruções antigas de clonagem de ZIP/bundle pertencem ao registro histórico de implantação inicial e **não** devem ser utilizadas por novos integrantes.
