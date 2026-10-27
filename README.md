@@ -88,3 +88,7 @@ python3.12 -m venv .venv
 6. `feat/ui-document-dashboard` e `feat/ui-human-review`: interface e auditoria.
 
 Os nomes são **sugestões**, não branches já criadas. Comece a partir de `develop` e abra PR para `develop`.
+
+## Arquitetura e fluxo do agente
+
+![Fluxo de triagem do MediFlow](diagramas/grafo_mediflow_v0.1.png)
