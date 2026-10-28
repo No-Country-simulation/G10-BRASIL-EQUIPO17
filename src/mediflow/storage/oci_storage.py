@@ -66,3 +66,18 @@ class OCIStorage:
         )
 
         return response.data.content
+
+    def listar_chaves(
+        self, prefixo: str, *, inicio: str | None = None, limite: int = 20
+    ) -> tuple[list[str], str | None]:
+        """Pagina objetos por prefixo. O token corresponde a next_start_with da OCI."""
+        parametros = {"prefix": prefixo, "limit": limite}
+        if inicio is not None:
+            parametros["start"] = inicio
+        resposta = self.client.list_objects(
+            self.namespace, self.bucket, **parametros
+        )
+        return (
+            [objeto.name for objeto in resposta.data.objects],
+            resposta.data.next_start_with,
+        )
