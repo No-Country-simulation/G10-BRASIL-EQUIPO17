@@ -1,6 +1,8 @@
 """API inicial (Dia 3). Nao realiza inferencia, triagem ou armazenamento."""
 from fastapi import FastAPI, HTTPException
 from mediflow_contracts.models import EntradaTexto
+from mediflow.api.uploads import router as uploads_router
+from mediflow.api.extraction_preview import router as extraction_preview_router
 
 app = FastAPI(
     title="MediFlow — API de desenvolvimento",
@@ -26,3 +28,10 @@ def criar_triagem_texto(entrada: EntradaTexto) -> None:
         status_code=501,
         detail={"codigo": "TRIAGEM_NAO_IMPLEMENTADA", "mensagem": "Fluxo de ingestao previsto para o Dia 5."},
     )
+
+
+# Ingestão restrita ao desenvolvimento local; autenticação será implementada antes do deploy.
+app.include_router(uploads_router)
+
+# Preview de integração I1/I2, sempre simulado e restrito a localhost.
+app.include_router(extraction_preview_router)
