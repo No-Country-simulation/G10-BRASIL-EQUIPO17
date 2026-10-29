@@ -21,7 +21,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "httpx>=0.27,<1", "jsonschema>=4.20,<5"]
-ai = ["langgraph>=1,<2"]
+ai = [
+    "langgraph>=1,<2",
+    "google-genai>=1,<3",
+]
 cloud = ["oci>=2,<3"]
 
 [tool.setuptools.packages.find]
