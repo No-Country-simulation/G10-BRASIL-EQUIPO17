@@ -1,18 +1,20 @@
 
-"""Adaptador inicial de extração documental em PDF.
+"""Funções e adaptadores para extração documental."""
 
-Esta versão lê o texto, mas ainda não interpreta semanticamente
-as informações médicas nem utiliza um modelo de IA.
-"""
+import json
 
-from mediflow_contracts.models import DadosExtraidos, ExtracaoIA
+from mediflow_contracts.models import (
+    DadosExtraidos,
+    EntradaTexto,
+    ExtracaoIA,
+)
 
 from mediflow.extraction.pdf_text import extrair_texto_pdf
 from mediflow.extraction.port import DocumentoParaExtracao
 
 
 class ExtratorPDF:
-    """Lê PDFs e produz um resultado neutro compatível com o contrato."""
+    """Lê PDFs e produz um resultado compatível com o contrato."""
 
     def extrair(self, documento: DocumentoParaExtracao) -> ExtracaoIA:
         if documento.mime_type != "application/pdf":
@@ -33,3 +35,41 @@ class ExtratorPDF:
                 )
             ),
         )
+
+
+def validar_extracao(
+    documento_id: str,
+    resposta_modelo: str,
+) -> ExtracaoIA:
+    """Valida a resposta JSON do modelo usando o contrato ExtracaoIA."""
+
+    try:
+        dados = json.loads(resposta_modelo)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            "A resposta do modelo não é um JSON válido."
+        ) from exc
+
+    if not isinstance(dados, dict):
+        raise ValueError("A resposta do modelo deve ser um objeto JSON.")
+
+    if dados.get("documento_id") != documento_id:
+        raise ValueError(
+            "O documento_id da resposta não corresponde à entrada."
+        )
+
+    return ExtracaoIA.model_validate(dados)
+
+
+def preparar_entrada(entrada: EntradaTexto) -> dict:
+    """Prepara os dados para serem enviados ao modelo de IA."""
+
+    return {
+        "documento_id": entrada.documento_id,
+        "documento_texto": entrada.documento_texto,
+        "instrucao": (
+            "Extraia somente informações presentes no documento. "
+            "Não invente dados. Marque campos ausentes ou ilegíveis "
+            "conforme o contrato de extração."
+        ),
+    }
