@@ -105,7 +105,7 @@ def test_extrator_rejeita_tipo_nao_suportado(monkeypatch):
 
     with pytest.raises(ValueError, match="Tipo de arquivo não suportado"):
         extrator.extrair(
-            criar_documento(mime_type="application/pdf", conteudo=b"%PDF")
+            criar_documento(mime_type="application/octet-stream", conteudo=b"%PDF")
         )
 
 
@@ -121,3 +121,80 @@ def test_extrator_rejeita_texto_utf8_invalido(monkeypatch):
         extrator.extrair(
             criar_documento(conteudo=b"\xff\xfe")
         )
+
+
+
+def test_extrator_processa_pdf_e_encaminha_texto_ao_gemini(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-ficticia")
+
+    with patch(
+        "mediflow.extraction.gemini_extractor.genai.Client"
+    ):
+        extrator = ExtratorGemini()
+
+    resultado_esperado = MagicMock()
+
+    with (
+        patch(
+            "mediflow.extraction.gemini_extractor.extrair_texto_pdf",
+            return_value="Texto fictício extraído do PDF.",
+        ) as mock_pdf,
+        patch.object(
+            extrator,
+            "extrair_texto",
+            return_value=resultado_esperado,
+        ) as mock_gemini,
+    ):
+        resultado = extrator.extrair(
+            criar_documento(
+                mime_type="application/pdf",
+                conteudo=b"conteudo-pdf-ficticio",
+            )
+        )
+
+    mock_pdf.assert_called_once_with(b"conteudo-pdf-ficticio")
+    mock_gemini.assert_called_once()
+
+    entrada = mock_gemini.call_args.args[0]
+    assert entrada.documento_texto == "Texto fictício extraído do PDF."
+    assert resultado is resultado_esperado
+
+
+@pytest.mark.parametrize("mime_type", ["image/png", "image/jpeg"])
+def test_extrator_processa_imagem_e_encaminha_texto_ao_gemini(
+    monkeypatch, mime_type
+):
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-ficticia")
+
+    with patch(
+        "mediflow.extraction.gemini_extractor.genai.Client"
+    ):
+        extrator = ExtratorGemini()
+
+    resultado_esperado = MagicMock()
+
+    with (
+        patch(
+            "mediflow.extraction.gemini_extractor.extrair_texto_imagem",
+            return_value="Texto fictício extraído da imagem.",
+        ) as mock_imagem,
+        patch.object(
+            extrator,
+            "extrair_texto",
+            return_value=resultado_esperado,
+        ) as mock_gemini,
+    ):
+        resultado = extrator.extrair(
+            criar_documento(
+                mime_type=mime_type,
+                conteudo=b"imagem-ficticia",
+            )
+        )
+
+    mock_imagem.assert_called_once_with(b"imagem-ficticia")
+    mock_gemini.assert_called_once()
+
+    entrada = mock_gemini.call_args.args[0]
+    assert entrada.documento_texto == "Texto fictício extraído da imagem."
+    assert resultado is resultado_esperado
+

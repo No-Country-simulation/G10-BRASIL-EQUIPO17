@@ -7,11 +7,26 @@ from google import genai
 
 from mediflow_contracts.models import EntradaTexto, ExtracaoIA
 from mediflow.extraction.extractor import preparar_entrada, validar_extracao
+from mediflow.extraction.pdf_text import (
+    extrair_texto_imagem,
+    extrair_texto_pdf,
+)
 from mediflow.extraction.port import DocumentoParaExtracao
 
 
 class ExtratorGemini:
     """Extrai informações documentais usando o Gemini."""
+
+    TIPOS_TEXTO = {
+        "text/plain",
+        "text/markdown",
+        "text/csv",
+    }
+
+    TIPOS_IMAGEM = {
+        "image/png",
+        "image/jpeg",
+    }
 
     def __init__(self, modelo: str = "gemini-3.1-flash-lite") -> None:
         api_key = os.getenv("GEMINI_API_KEY")
@@ -22,22 +37,33 @@ class ExtratorGemini:
         self.modelo = modelo
 
     def extrair(self, documento: DocumentoParaExtracao) -> ExtracaoIA:
-        """Implementa a interface ExtratorDocumento para texto UTF-8."""
+        """Extrai o texto do arquivo e encaminha ao Gemini."""
 
-        if documento.mime_type not in {
-            "text/plain",
-            "text/markdown",
-            "text/csv",
-        }:
+        mime_type = documento.mime_type
+
+        if mime_type == "application/pdf":
+            texto = extrair_texto_pdf(documento.conteudo)
+
+        elif mime_type in self.TIPOS_IMAGEM:
+            texto = extrair_texto_imagem(documento.conteudo)
+
+        elif mime_type in self.TIPOS_TEXTO:
+            try:
+                texto = documento.conteudo.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise ValueError(
+                    "O documento não contém texto UTF-8 válido."
+                ) from exc
+
+        else:
             raise ValueError(
-                "Tipo de arquivo não suportado nesta etapa: "
-                "é necessário texto UTF-8."
+                f"Tipo de arquivo não suportado: {mime_type}."
             )
 
-        try:
-            texto = documento.conteudo.decode("utf-8")
-        except UnicodeDecodeError as exc:
-            raise ValueError("O documento não contém texto UTF-8 válido.") from exc
+        if not texto.strip():
+            raise ValueError(
+                "Não foi possível extrair texto do documento."
+            )
 
         entrada = EntradaTexto(
             documento_id=documento.documento_id,
@@ -46,8 +72,6 @@ class ExtratorGemini:
         )
 
         return self.extrair_texto(entrada)
-
-
 
     def extrair_texto(self, entrada: EntradaTexto) -> ExtracaoIA:
         """Envia texto ao Gemini e valida a resposta do modelo."""
