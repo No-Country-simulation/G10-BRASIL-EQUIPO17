@@ -1,5 +1,6 @@
 """Testes da rota de extração real sem chamadas ao Gemini ou credenciais Oracle."""
 
+import os
 from hashlib import sha256
 from pathlib import Path
 
@@ -265,3 +266,28 @@ def test_extracao_rota_documentada_no_swagger(servico):
         "/v1/triagens/arquivos/{documento_id}/{arquivo_id}/extracao"
         in paths
     )
+
+
+@pytest.mark.skipif(
+    not os.getenv("GEMINI_API_KEY"),
+    reason="GEMINI_API_KEY não configurada",
+)
+def test_fluxo_api_com_gemini_real(servico):
+    client, fake = servico
+
+    recibo = enviar(client)
+
+    response = extracao(client, recibo)
+
+    assert response.status_code == 200, response.text
+
+    resultado = ExtracaoIA.model_validate(response.json())
+
+    assert resultado.documento_id == recibo["documento_id"]
+    assert resultado.tipo_documento == "laudo_laboratorial"
+
+    chave_original = recibo["armazenamento_original"]["chave_original"]
+    assert chave_original in fake.objetos
+
+    assert fake.reads
+    assert chave_original in fake.reads

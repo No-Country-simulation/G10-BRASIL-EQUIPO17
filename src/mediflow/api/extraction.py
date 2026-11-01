@@ -13,7 +13,6 @@ from mediflow.api.uploads import (
     armazenamento,
     somente_desenvolvimento_local,
 )
-from mediflow.extraction.gemini_extractor import ExtratorGemini
 from mediflow.extraction.port import DocumentoParaExtracao, ExtratorDocumento
 from mediflow.storage.oci_storage import OCIStorage
 from mediflow_contracts.models import ExtracaoIA
@@ -29,6 +28,8 @@ MIME_ENTRADA = {
 def extrator_gemini() -> ExtratorDocumento:
     """Cria o extrator real somente durante a requisição."""
     try:
+        from mediflow.extraction.gemini_extractor import ExtratorGemini
+
         return ExtratorGemini()
     except ValueError as exc:
         raise HTTPException(
@@ -123,17 +124,17 @@ def extrair_documento(
         raise HTTPException(
             status_code=502,
             detail={
-                "codigo": "EXTRACAO_CONTRATO_INVALIDO",
-                "mensagem": "Módulo de extração retornou dados incompatíveis com o contrato.",
+            "codigo": "EXTRACAO_CONTRATO_INVALIDO",
+            "mensagem": "Módulo de extração retornou dados incompatíveis com o contrato.",
             },
         ) from exc
     except Exception as exc:
         raise HTTPException(
-            status_code=502,
-            detail={
+        status_code=502,
+        detail={
                 "codigo": "EXTRATOR_INDISPONIVEL",
                 "mensagem": "Falha na execução da extração documental.",
-            },
+        },
         ) from exc
 
     if resultado.documento_id != documento_id:
@@ -146,5 +147,3 @@ def extrair_documento(
         )
 
     return resultado
-
-
