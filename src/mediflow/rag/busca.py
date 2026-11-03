@@ -25,6 +25,22 @@ def _normalizar(texto: str) -> set[str]:
     return {p for p in re.findall(r"[a-z0-9]+", sem_acento) if len(p) > 2}
 
 
+def _trecho(texto: str, termos: set[str], tamanho: int = 200) -> str:
+    """Devolve a linha da ficha com mais termos em comum com a consulta."""
+    melhor = ""
+    melhor_pontos = 0
+    for linha in texto.splitlines():
+        limpa = linha.strip().lstrip("#-* ").strip()
+        if not limpa:
+            continue
+        pontos = len(termos & _normalizar(limpa))
+        if pontos > melhor_pontos:
+            melhor, melhor_pontos = limpa, pontos
+    if not melhor:
+        return texto.strip()[:tamanho]
+    return melhor[:tamanho]
+
+
 class RecuperadorPorPalavras:
     """Pontua cada fonte pelas palavras em comum com a consulta."""
 
@@ -48,7 +64,7 @@ class RecuperadorPorPalavras:
                     titulo=f.titulo,
                     url=f.url,
                     versao=f.versao,
-                    trecho_relevante=f.texto[:200],
+                    trecho_relevante=_trecho(f.texto, termos),
                 )
                 for _, f in pontuadas[: consulta.limite]
             ]
