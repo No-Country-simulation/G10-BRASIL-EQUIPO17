@@ -3,6 +3,7 @@ from io import BytesIO
 
 import pymupdf
 import pytest
+import pytesseract
 from PIL import Image, ImageDraw, ImageFont
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
@@ -156,3 +157,39 @@ def test_extrair_texto_pdf_preserva_numero_das_paginas():
     assert resultado.index("[Página 2]") < resultado.index(
         "Texto exclusivo da segunda pagina."
     )
+
+
+def test_ocr_imagem_timeout():
+    conteudo = criar_imagem_com_texto("PNG")
+
+    def simular_timeout(*args, **kwargs):
+        raise RuntimeError("Tesseract process timeout")
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(
+        pytesseract,
+        "image_to_string",
+        simular_timeout,
+    )
+
+    try:
+        with pytest.raises(RuntimeError, match="timeout"):
+            extrair_texto_imagem(conteudo)
+    finally:
+        monkeypatch.undo()
+
+
+def test_ocr_pdf_timeout(monkeypatch):
+    conteudo = criar_pdf_digitalizado()
+
+    def simular_timeout(*args, **kwargs):
+        raise RuntimeError("Tesseract process timeout")
+
+    monkeypatch.setattr(
+        pytesseract,
+        "image_to_string",
+        simular_timeout,
+    )
+
+    with pytest.raises(RuntimeError, match="timeout"):
+        extrair_texto_pdf(conteudo)

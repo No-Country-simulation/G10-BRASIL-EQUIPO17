@@ -128,6 +128,7 @@ def extrair_documento(
             "mensagem": "Módulo de extração retornou dados incompatíveis com o contrato.",
             },
         ) from exc
+
     except Exception as exc:
         raise HTTPException(
         status_code=502,

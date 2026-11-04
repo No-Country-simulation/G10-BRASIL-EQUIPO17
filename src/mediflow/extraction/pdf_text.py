@@ -7,6 +7,8 @@ import pymupdf
 import pytesseract
 from PIL import Image, UnidentifiedImageError
 
+OCR_TIMEOUT_SECONDS = 30
+
 
 def extrair_texto_imagem(conteudo: bytes) -> str:
     """Extrai texto de imagens PNG e JPEG usando OCR."""
@@ -21,6 +23,7 @@ def extrair_texto_imagem(conteudo: bytes) -> str:
             return pytesseract.image_to_string(
                 imagem,
                 lang="por",
+                timeout=OCR_TIMEOUT_SECONDS,
             ).strip()
     except UnidentifiedImageError as exc:
         raise ValueError("Não foi possível abrir a imagem.") from exc
@@ -48,6 +51,7 @@ def extrair_texto_pdf(conteudo: bytes) -> str:
                 texto = pytesseract.image_to_string(
                     imagem,
                     lang="por",
+                    timeout=OCR_TIMEOUT_SECONDS,
                 ).strip()
 
             paginas_texto.append(

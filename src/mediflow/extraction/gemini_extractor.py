@@ -5,6 +5,7 @@ import json
 import os
 
 from google import genai
+from google.genai import types
 
 from mediflow_contracts.models import EntradaTexto, ExtracaoIA
 from mediflow.extraction.extractor import preparar_entrada, validar_extracao
@@ -34,7 +35,10 @@ class ExtratorGemini:
         if not api_key:
             raise ValueError("A variável GEMINI_API_KEY não está configurada.")
 
-        self.cliente = genai.Client(api_key=api_key)
+        self.cliente = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(timeout=30000),
+        )
         self.modelo = modelo
 
     def extrair(self, documento: DocumentoParaExtracao) -> ExtracaoIA:
