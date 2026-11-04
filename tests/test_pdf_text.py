@@ -103,6 +103,20 @@ def criar_pdf_digitalizado():
     documento.save()
     return buffer.getvalue()
 
+def criar_pdf_com_duas_paginas():
+    """Cria um PDF fictício com texto em duas páginas."""
+    documento = pymupdf.open()
+
+    pagina1 = documento.new_page()
+    pagina1.insert_text((72, 72), "Texto exclusivo da primeira pagina.")
+
+    pagina2 = documento.new_page()
+    pagina2.insert_text((72, 72), "Texto exclusivo da segunda pagina.")
+
+    conteudo = documento.tobytes()
+    documento.close()
+
+    return conteudo
 
 
 def test_ocr_imagem_png():
@@ -127,3 +141,18 @@ def test_ocr_pdf_digitalizado():
     resultado = extrair_texto_pdf(conteudo)
 
     assert "DOCUMENTO FICTICIO" in resultado.upper()
+
+
+def test_extrair_texto_pdf_preserva_numero_das_paginas():
+    conteudo = criar_pdf_com_duas_paginas()
+
+    resultado = extrair_texto_pdf(conteudo)
+
+    assert "[Página 1]" in resultado
+    assert "[Página 2]" in resultado
+    assert resultado.index("[Página 1]") < resultado.index(
+        "Texto exclusivo da primeira pagina."
+    )
+    assert resultado.index("[Página 2]") < resultado.index(
+        "Texto exclusivo da segunda pagina."
+    )

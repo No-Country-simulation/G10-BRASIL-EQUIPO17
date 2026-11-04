@@ -90,7 +90,12 @@ class ExtratorGemini:
         "Não crie campos adicionais. "
         "Use null ou listas vazias para informações ausentes, conforme o schema. "
         "Use evidências somente para informações apoiadas por trechos literais "
-        "do documento."
+        "do documento. "
+        "Para cada evidência, informe o número da página indicado "
+        "nos marcadores [Página N] presentes no texto. "
+        "Não invente números de página. "
+        "Se não houver marcador de página associado à evidência, "
+        "preencha pagina com null."
         )
 
         resposta = self.cliente.models.generate_content(
@@ -108,4 +113,8 @@ class ExtratorGemini:
         if not resposta.text:
             raise ValueError("O Gemini retornou uma resposta vazia.")
 
-        return validar_extracao(entrada.documento_id, resposta.text)
+        return validar_extracao(
+            documento_id=entrada.documento_id,
+            resposta_modelo=resposta.text,
+            documento_texto=entrada.documento_texto,
+        )
