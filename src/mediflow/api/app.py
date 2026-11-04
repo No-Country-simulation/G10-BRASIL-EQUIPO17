@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException
 from mediflow_contracts.models import EntradaTexto
 from mediflow.api.uploads import router as uploads_router
 from mediflow.api.extraction_preview import router as extraction_preview_router
+from mediflow.api.extraction import router as extraction_router
 
 app = FastAPI(
     title="MediFlow — API de desenvolvimento",
@@ -35,3 +36,6 @@ app.include_router(uploads_router)
 
 # Preview de integração I1/I2, sempre simulado e restrito a localhost.
 app.include_router(extraction_preview_router)
+
+# Extração real com Gemini, restrita ao desenvolvimento local.
+app.include_router(extraction_router)

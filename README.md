@@ -432,6 +432,26 @@ Os resultados esperados estão em [`baseline_dia1/`](baseline_dia1/), [`amostras
 - [Interface de extração simulada](docs/09_interface_api_extracao.md)
 - [Grafo de decisão versionado](diagramas/grafo_mediflow_v0.1.md)
 
+## Integração I2 — OCR e Gemini
+
+A integração I2 é responsável pela preparação do conteúdo documental, extração de texto por OCR e geração de dados estruturados com IA.
+
+### Recursos
+
+- **OCR:** extração de texto de PDFs e imagens com Tesseract.
+- **Gemini:** utilização da API do Google Gemini para gerar dados estruturados conforme o contrato `ExtracaoIA`.
+- **Validação:** validação dos dados retornados pela IA utilizando os contratos Pydantic.
+- **Preview:** rota de demonstração com respostas simuladas, sem chamada ao Gemini real.
+
+### Configuração do Gemini
+
+Configure a variável de ambiente `GEMINI_API_KEY` com uma chave válida da API do Google.
+
+Linux/macOS:
+
+```bash
+export GEMINI_API_KEY="SUA_CHAVE"
+
 ---
 
 **Estado:** protótipo educacional em integração. O objetivo é demonstrar rastreabilidade de documentos sintéticos, respeito aos contratos, validação determinística e revisão humana, **não** substituir avaliação profissional ou operar um sistema clínico real.
