@@ -81,3 +81,23 @@ class OCIStorage:
             [objeto.name for objeto in resposta.data.objects],
             resposta.data.next_start_with,
         )
+
+    def upload_bytes_if_absent(
+        self,
+        object_name: str,
+        content: bytes,
+        content_type: str = "application/octet-stream",
+    ) -> str:
+        """Cria objeto somente se a chave ainda não existir na OCI."""
+        if not object_name or not content:
+            raise ValueError("Nome e conteúdo são obrigatórios")
+
+        self.client.put_object(
+            self.namespace,
+            self.bucket,
+            object_name,
+            content,
+            content_type=content_type,
+            if_none_match="*",
+        )
+        return hashlib.sha256(content).hexdigest()
