@@ -30,14 +30,23 @@ class ExtratorGemini:
         "image/jpeg",
     }
 
-    def __init__(self, modelo: str = "gemini-3.1-flash-lite") -> None:
+    def __init__(self, modelo: str = "gemini-3.8-flash") -> None:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise ValueError("A variável GEMINI_API_KEY não está configurada.")
 
         self.cliente = genai.Client(
             api_key=api_key,
-            http_options=types.HttpOptions(timeout=30000),
+            http_options=types.HttpOptions(
+            timeout=60000,
+            retry_options=types.HttpRetryOptions(
+            attempts=5,
+            initial_delay=2,
+            max_delay=30,
+            exp_base=2,
+            http_status_codes=[408, 429, 500, 502, 503, 504],
+            ),
+            ),
         )
         self.modelo = modelo
 
