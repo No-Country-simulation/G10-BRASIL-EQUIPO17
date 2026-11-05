@@ -147,3 +147,21 @@ def test_rejeitar_evidencia_com_trecho_incorreto():
             json.dumps(resposta),
             documento_texto=texto,
         )
+
+def test_rejeitar_evidencia_sem_pagina_com_trecho_incorreto():
+    texto = (
+        "[Página 1]\n"
+        "Resultado do exame: hemoglobina 13 g/dL."
+    )
+
+    resposta = criar_resposta_com_evidencia(
+        None,
+        "Resultado do exame: glicose 100 mg/dL.",
+    )
+
+    with pytest.raises(ValueError, match="trecho da evidência"):
+        validar_extracao(
+            "DOC-001",
+            json.dumps(resposta),
+            documento_texto=texto,
+        )

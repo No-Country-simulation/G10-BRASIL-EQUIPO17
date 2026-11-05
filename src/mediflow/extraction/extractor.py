@@ -41,7 +41,13 @@ def validar_extracao(
         normalizar = lambda texto: " ".join(texto.split())
 
         for evidencia in resultado.evidencias:
+            trecho = normalizar(evidencia.trecho_documento)
+
             if evidencia.pagina is None:
+                if trecho not in normalizar(documento_texto):
+                    raise ValueError(
+                        "O trecho da evidência não foi encontrado no documento."
+                    )
                 continue
 
             texto_pagina = paginas.get(evidencia.pagina)
@@ -51,11 +57,7 @@ def validar_extracao(
                     "A evidência referencia uma página inexistente."
                 )
 
-            normalizar = lambda texto: " ".join(texto.split())
-
-            if normalizar(evidencia.trecho_documento) not in normalizar(
-                texto_pagina
-            ):
+            if trecho not in normalizar(texto_pagina):
                 raise ValueError(
                     "O trecho da evidência não foi encontrado na página informada."
                 )
