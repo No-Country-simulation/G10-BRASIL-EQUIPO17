@@ -49,6 +49,10 @@ O carregador rejeita ficha sem cabeçalho, sem `fonte_id`, `titulo` ou `versao`,
 - Ficha do tipo de documento "receituário".
 - Status dos campos extraídos (origem: `mediflow_contracts/models.py`).
 
+## Origem da ficha e url
+
+Cada ficha guarda a origem em `origem:` e o link navegável do arquivo-fonte em `url:`. O carregador lê o campo e o recuperador o devolve em `FonteRAG.url`, sem alterar o contrato `RecuperacaoRAG` v0.1 e sem colocar prefixo no `trecho_relevante`. Fichas das regras apontam para `rules/roteamento.yaml` ou `rules/validacao.yaml`; fontes externas futuras entram com o link oficial. O teste `tests/test_rag_url_origem.py` confere a propagação.
+
 ## Sincronia com os YAMLs
 
 Os YAMLs de `rules/` são a referência oficial. O arquivo `tests/test_rag_sincronia_yaml.py` falha quando uma ficha diverge deles (IDs, versão, precedência, revisão humana e campos mínimos). Se alguém mudar uma regra, o teste indica qual ficha atualizar.
