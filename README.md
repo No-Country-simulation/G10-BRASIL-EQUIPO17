@@ -445,13 +445,75 @@ A integração I2 é responsável pela preparação do conteúdo documental, ext
 
 ### Configuração do Gemini
 
-Configure a variável de ambiente `GEMINI_API_KEY` com uma chave válida da API do Google.
+A integração I2 utiliza a API do Google Gemini para gerar dados estruturados conforme o contrato `ExtracaoIA`. A chamada real exige uma chave válida e deve ser realizada somente em homologação controlada, utilizando documentos sintéticos.
 
-Linux/macOS:
+#### Instalação das dependências de IA
 
+Na raiz do repositório, com o ambiente virtual ativado:
+
+**Linux/macOS:**
+```bash
+.venv/bin/python -m pip install -e '.[dev,ai]'
+```
+
+**Windows (PowerShell):**
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[dev,ai]"
+```
+
+#### Configuração da chave
+
+Configure a variável `GEMINI_API_KEY` sem publicar ou compartilhar sua chave.
+
+**Linux/macOS:**
 ```bash
 export GEMINI_API_KEY="SUA_CHAVE"
+```
 
+**Windows (PowerShell):**
+```powershell
+$env:GEMINI_API_KEY="SUA_CHAVE"
+```
+
+O arquivo `.env.example` contém a variável `GEMINI_API_KEY=` como referência, sem credenciais reais. A aplicação utiliza a variável de ambiente; não coloque sua chave diretamente no código ou em arquivos versionados.
+
+#### Instalação do Tesseract OCR
+
+O pacote Python `pytesseract` não instala o executável Tesseract. Ele precisa estar instalado no sistema operacional, com o idioma português disponível.
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install tesseract-ocr tesseract-ocr-por
+```
+
+**Windows:**
+
+1. Instale o Tesseract OCR por meio de um instalador confiável para Windows.
+2. Durante a instalação, inclua o idioma português (`por`).
+3. Adicione a pasta de instalação do Tesseract à variável `PATH` do sistema, se necessário.
+4. Abra um novo PowerShell e verifique:
+```powershell
+tesseract --version
+tesseract --list-langs
+```
+
+A lista de idiomas deve apresentar `por`. No Linux, a mesma verificação pode ser feita com os mesmos comandos.
+
+#### Homologação real controlada
+
+A homologação real do Gemini deve utilizar exclusivamente documentos sintéticos, sem dados pessoais ou informações clínicas reais.
+
+O teste deve verificar:
+- classificação do documento;
+- conformidade da resposta com `ExtracaoIA` versão `0.1`;
+- campos extraídos e evidências correspondentes ao conteúdo original;
+- latência da chamada;
+- tratamento de indisponibilidade, timeout e erros da API.
+
+Os testes automatizados com mocks validam o comportamento do adaptador sem consumir a API. Eles não substituem a homologação real. Uma chamada bem-sucedida isolada também não comprova disponibilidade contínua do serviço.
+
+A extração é um recurso de apoio à organização documental. Não realiza diagnóstico, prescrição ou decisão clínica, e seus resultados exigem validação humana.
 ---
 
 **Estado:** protótipo educacional em integração. O objetivo é demonstrar rastreabilidade de documentos sintéticos, respeito aos contratos, validação determinística e revisão humana, **não** substituir avaliação profissional ou operar um sistema clínico real.
