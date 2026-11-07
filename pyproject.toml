@@ -39,3 +39,6 @@ addopts = "-ra"
 
 [tool.coverage.run]
 source = ["mediflow", "mediflow_contracts"]
+
+[tool.setuptools.package-data]
+"mediflow.rag" = ["base_conhecimento/*.md"]
