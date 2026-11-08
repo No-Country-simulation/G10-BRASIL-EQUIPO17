@@ -16,8 +16,8 @@ class ConsultaRAG:
     limite: int = 3
 
     def __post_init__(self) -> None:
-        if self.limite < 1:
-            raise ValueError("limite deve ser maior ou igual a 1")
+        if type(self.limite) is not int or not 1 <= self.limite <= 10:
+            raise ValueError("limite deve ser um inteiro entre 1 e 10.")
 
 
 class RecuperadorReferencias(Protocol):
