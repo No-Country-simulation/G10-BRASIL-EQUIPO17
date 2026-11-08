@@ -237,3 +237,31 @@ def test_extrator_propaga_falha_de_comunicacao_com_gemini(monkeypatch):
     with pytest.raises(RuntimeError, match="Serviço Gemini indisponível"):
         extrator.extrair_texto(criar_entrada())
 
+def test_extrator_usa_modelo_padrao(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-ficticia")
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
+
+    with patch("mediflow.extraction.gemini_extractor.genai.Client"):
+        extrator = ExtratorGemini()
+
+    assert extrator.modelo == "gemini-3.8-flash"
+
+
+def test_extrator_usa_modelo_da_variavel_ambiente(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-ficticia")
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
+
+    with patch("mediflow.extraction.gemini_extractor.genai.Client"):
+        extrator = ExtratorGemini()
+
+    assert extrator.modelo == "gemini-3.1-flash-lite"
+
+
+def test_extrator_prioriza_modelo_informado_no_construtor(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-ficticia")
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
+
+    with patch("mediflow.extraction.gemini_extractor.genai.Client"):
+        extrator = ExtratorGemini(modelo="gemini-3.8-flash")
+
+    assert extrator.modelo == "gemini-3.8-flash"
