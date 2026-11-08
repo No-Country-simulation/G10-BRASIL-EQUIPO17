@@ -20,6 +20,28 @@ def test_extrator_rejeita_api_key_ausente(monkeypatch):
     with pytest.raises(ValueError, match="GEMINI_API_KEY"):
         ExtratorGemini()
 
+def test_extrator_configura_timeout_e_retry(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-ficticia")
+
+    with patch(
+        "mediflow.extraction.gemini_extractor.genai.Client"
+    ) as cliente_mock:
+        ExtratorGemini()
+
+    cliente_mock.assert_called_once()
+
+    configuracao = cliente_mock.call_args.kwargs["http_options"]
+
+    assert configuracao.timeout == 60000
+
+    retry = configuracao.retry_options
+
+    assert retry.attempts == 5
+    assert retry.initial_delay == 2
+    assert retry.max_delay == 30
+    assert retry.exp_base == 2
+    assert retry.http_status_codes == [408, 429, 500, 502, 503, 504]
+
 
 def test_extrator_envia_texto_e_valida_resposta(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "chave-ficticia")
@@ -197,4 +219,21 @@ def test_extrator_processa_imagem_e_encaminha_texto_ao_gemini(
     entrada = mock_gemini.call_args.args[0]
     assert entrada.documento_texto == "Texto fictício extraído da imagem."
     assert resultado is resultado_esperado
+
+def test_extrator_propaga_falha_de_comunicacao_com_gemini(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-ficticia")
+
+    cliente_mock = MagicMock()
+    cliente_mock.models.generate_content.side_effect = RuntimeError(
+        "Serviço Gemini indisponível"
+    )
+
+    with patch(
+        "mediflow.extraction.gemini_extractor.genai.Client",
+        return_value=cliente_mock,
+    ):
+        extrator = ExtratorGemini()
+
+    with pytest.raises(RuntimeError, match="Serviço Gemini indisponível"):
+        extrator.extrair_texto(criar_entrada())
 
