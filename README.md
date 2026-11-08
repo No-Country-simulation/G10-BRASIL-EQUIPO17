@@ -25,14 +25,14 @@ O **MediFlow** é um projeto de apoio à **organização, classificação, extra
 
 | Módulo / recurso | Na `develop` | Em desenvolvimento ou revisão |
 | --- | --- | --- |
-| **I1 — FastAPI** | `GET /health`; recebimento de PDF/PNG/JPEG; consulta de manifestos; listagem por documento com paginação; preview de extração **simulado** | Endpoint de extração **real** e integração do processamento |
-| **I2 — Extração** | Modelos e validação do contrato `ExtracaoIA`; interface substituível `ExtratorDocumento` | PyMuPDF + Tesseract (PDF e imagens) + Gemini + rota `/extracao`: [PR #14](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/14) |
+| **I1 — FastAPI** | `GET /health`; recebimento de PDF/PNG/JPEG; consulta de manifestos; listagem por documento com paginação; preview de extração **simulado** | Integração com RAG, regras e fluxo completo de processamento |
+| **I2 — Extração** | Modelos e validação do contrato `ExtracaoIA`; interface substituível `ExtratorDocumento` | PyMuPDF + Tesseract (PDF e imagens) + Gemini + rota de extração real integrada à `develop`
 | **I3 — RAG** | Contratos `FonteRAG` e `RecuperacaoRAG` | Recuperador local por palavras-chave e 14 fichas versionadas: [PR #16 (Draft)](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/16) |
 | **I4 — Regras/agente** | Catálogo R001–R006, validações V001–V004 e geração **demonstrativa** de contratos por funções puras | Motor integrado ao pipeline e orquestração LangGraph **não presentes na `develop`** |
 | **I5 — OCI** | Adaptador `OCIStorage`; gravação e leitura de originais e manifestos; verificação SHA-256; listagem por prefixo | Persistência de resultado/histórico: [PR #15](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/15); monitoramento, IAM e deploy operacional fora do código |
 | **I6 — Interface/QA** | Testes automatizados, cenários sintéticos e estrutura inicial de UI | Interface e painel de revisão humana pendentes |
 
-**PRs relacionados:** [#11](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/11) e [#13](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/13) contêm abordagens de OCR sobrepostas ao #14 e precisam de consolidação; o [#12](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/12), de `develop` para `main`, é uma proposta de promoção ainda não concluída. **Não trate PR aberto como código já integrado.**
+**PRs relacionados:** os PRs [#11](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/11) e [#13](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/13) foram encerrados após a consolidação das funcionalidades de OCR e extração no [PR #14](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/14), integrado à `develop`. O [PR #12](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/12), de `develop` para `main`, é uma proposta de promoção e deve ser tratado conforme seu estado atual.
 
 ### O que funciona hoje
 
@@ -54,7 +54,7 @@ flowchart LR
     API --> STO["I5 · OCIStorage"]
     STO <--> OCI[("OCI Object Storage\noriginais/ + metadados/")]
     API --> PREVIEW["Preview simulado\nExtratorDocumento"]
-    API -. "integração em PR #14" .-> EXTRACAO["I2 · OCR + Gemini"]
+    API -->|I2 integrada à develop| EXTRACAO["I2 · OCR + Gemini"]
     EXTRACAO -. "contrato ExtracaoIA" .-> AGENTE["I4 · Validação + LangGraph"]
     RAG["I3 · Recuperação de fontes"] -. "referências; não decide" .-> AGENTE
     AGENTE -. "ResultadoTriagem" .-> PERSIST["I5 · Resultados e histórico"]
@@ -360,13 +360,13 @@ As rotas relacionadas a arquivos são **exclusivamente locais** e exigem simulta
 
 **Restrições de ingestão:** PDF, PNG e JPEG; até **10 MiB por arquivo**; PDF até **10 páginas**. O sistema valida MIME, extensão e assinatura; isso **não substitui antivírus** ou controles contra conteúdo malicioso.
 
-### Rota ainda em PR
+### Rota de extração real
 
-O [PR #14](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/14) propõe `POST /v1/triagens/arquivos/{documento_id}/{arquivo_id}/extracao`: recupera o original na OCI, confere a integridade, executa OCR/Gemini e valida `ExtracaoIA`. **Não existe na `develop` enquanto o PR não for integrado**. Testes com mocks não comprovam uma chamada real à API do Gemini. Configurar `GEMINI_API_KEY`, Tesseract e o extra `ai` é uma etapa **posterior à aprovação** do PR, com testes sintéticos e custos controlados.
+A rota `POST /v1/triagens/arquivos/{documento_id}/{arquivo_id}/extracao` está integrada à `develop`. Ela recupera o documento original na OCI, verifica sua integridade por tamanho e SHA-256, extrai texto de PDFs e imagens com PyMuPDF e Tesseract e utiliza o Gemini para gerar dados estruturados validados pelo contrato `ExtracaoIA`. A validação de evidências documentais verifica se os trechos informados estão presentes no conteúdo extraído. Os testes automatizados utilizam mocks e não substituem uma chamada real controlada à API do Gemini.
 
 ## 9. Módulos em integração e próximos passos
 
-1. **I2 / PR #14:** consolidar OCR e Gemini, validar timeouts, evidências documentais, erros operacionais e uma chamada real controlada com amostra fictícia. Os PRs #11/#13 são sobrepostos e devem ser conciliados, não integrados cegamente.
+1. **I2 / Extração:** realizar uma chamada real controlada ao Gemini com documento sintético, avaliar latência, comportamento diante de indisponibilidade da API e qualidade das evidências extraídas.
 2. **I3 / PR #16:** concluir empacotamento das 14 fichas no wheel, robustecer a verificação de sincronização com os YAMLs, preservar rastreabilidade e integrar o recuperador somente após revisão.
 3. **I5 / PR #15:** revisar e integrar o serviço isolado de resultado/histórico; testar na OCI real com objetos sintéticos antes de declarar a persistência final homologada.
 4. **I4:** implementar o processamento determinístico ligado ao fluxo e a orquestração LangGraph, com testes específicos dos cenários e da precedência R001–R006.
@@ -432,6 +432,88 @@ Os resultados esperados estão em [`baseline_dia1/`](baseline_dia1/), [`amostras
 - [Interface de extração simulada](docs/09_interface_api_extracao.md)
 - [Grafo de decisão versionado](diagramas/grafo_mediflow_v0.1.md)
 
+## Integração I2 — OCR e Gemini
+
+A integração I2 é responsável pela preparação do conteúdo documental, extração de texto por OCR e geração de dados estruturados com IA.
+
+### Recursos
+
+- **OCR:** extração de texto de PDFs e imagens com Tesseract.
+- **Gemini:** utilização da API do Google Gemini para gerar dados estruturados conforme o contrato `ExtracaoIA`.
+- **Validação:** validação dos dados retornados pela IA utilizando os contratos Pydantic.
+- **Preview:** rota de demonstração com respostas simuladas, sem chamada ao Gemini real.
+
+### Configuração do Gemini
+
+A integração I2 utiliza a API do Google Gemini para gerar dados estruturados conforme o contrato `ExtracaoIA`. A chamada real exige uma chave válida e deve ser realizada somente em homologação controlada, utilizando documentos sintéticos.
+
+#### Instalação das dependências de IA
+
+Na raiz do repositório, com o ambiente virtual ativado:
+
+**Linux/macOS:**
+```bash
+.venv/bin/python -m pip install -e '.[dev,ai]'
+```
+
+**Windows (PowerShell):**
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[dev,ai]"
+```
+
+#### Configuração da chave
+
+Configure a variável `GEMINI_API_KEY` sem publicar ou compartilhar sua chave.
+
+**Linux/macOS:**
+```bash
+export GEMINI_API_KEY="SUA_CHAVE"
+```
+
+**Windows (PowerShell):**
+```powershell
+$env:GEMINI_API_KEY="SUA_CHAVE"
+```
+
+O arquivo `.env.example` contém a variável `GEMINI_API_KEY=` como referência, sem credenciais reais. A aplicação utiliza a variável de ambiente; não coloque sua chave diretamente no código ou em arquivos versionados.
+
+#### Instalação do Tesseract OCR
+
+O pacote Python `pytesseract` não instala o executável Tesseract. Ele precisa estar instalado no sistema operacional, com o idioma português disponível.
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install tesseract-ocr tesseract-ocr-por
+```
+
+**Windows:**
+
+1. Instale o Tesseract OCR por meio de um instalador confiável para Windows.
+2. Durante a instalação, inclua o idioma português (`por`).
+3. Adicione a pasta de instalação do Tesseract à variável `PATH` do sistema, se necessário.
+4. Abra um novo PowerShell e verifique:
+```powershell
+tesseract --version
+tesseract --list-langs
+```
+
+A lista de idiomas deve apresentar `por`. No Linux, a mesma verificação pode ser feita com os mesmos comandos.
+
+#### Homologação real controlada
+
+A homologação real do Gemini deve utilizar exclusivamente documentos sintéticos, sem dados pessoais ou informações clínicas reais.
+
+O teste deve verificar:
+- classificação do documento;
+- conformidade da resposta com `ExtracaoIA` versão `0.1`;
+- campos extraídos e evidências correspondentes ao conteúdo original;
+- latência da chamada;
+- tratamento de indisponibilidade, timeout e erros da API.
+
+Os testes automatizados com mocks validam o comportamento do adaptador sem consumir a API. Eles não substituem a homologação real. Uma chamada bem-sucedida isolada também não comprova disponibilidade contínua do serviço.
+
+A extração é um recurso de apoio à organização documental. Não realiza diagnóstico, prescrição ou decisão clínica, e seus resultados exigem validação humana.
 ---
 
 **Estado:** protótipo educacional em integração. O objetivo é demonstrar rastreabilidade de documentos sintéticos, respeito aos contratos, validação determinística e revisão humana, **não** substituir avaliação profissional ou operar um sistema clínico real.
