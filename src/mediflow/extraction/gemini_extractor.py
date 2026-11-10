@@ -49,7 +49,7 @@ class ExtratorGemini:
             ),
         )
         modelo_configurado = modelo or os.getenv("GEMINI_MODEL")
-        self.modelo = (modelo_configurado or "").strip() or "gemini-3.8-flash"
+        self.modelo = (modelo_configurado or "").strip() or "gemini-3.5-flash-lite"
 
     def extrair(self, documento: DocumentoParaExtracao) -> ExtracaoIA:
         """Extrai o texto do arquivo e encaminha ao Gemini."""
