@@ -447,6 +447,17 @@ A integração I2 é responsável pela preparação do conteúdo documental, ext
 
 A integração I2 utiliza a API do Google Gemini para gerar dados estruturados conforme o contrato `ExtracaoIA`. A chamada real exige uma chave válida e deve ser realizada somente em homologação controlada, utilizando documentos sintéticos.
 
+#### Configuração do modelo
+
+A variável `GEMINI_MODEL` permite selecionar o modelo utilizado na extração.
+Caso não seja configurada ou esteja vazia, será utilizado `gemini-3.8-flash`.
+
+**Linux/macOS:**
+```bash
+export GEMINI_MODEL="gemini-3.1-flash-lite"
+$env:GEMINI_MODEL="gemini-3.1-flash-lite"
+```
+
 #### Instalação das dependências de IA
 
 Na raiz do repositório, com o ambiente virtual ativado:
@@ -517,3 +528,7 @@ A extração é um recurso de apoio à organização documental. Não realiza di
 ---
 
 **Estado:** protótipo educacional em integração. O objetivo é demonstrar rastreabilidade de documentos sintéticos, respeito aos contratos, validação determinística e revisão humana, **não** substituir avaliação profissional ou operar um sistema clínico real.
+
+
+**Importante:** esses comandos configuram a variável apenas na sessão atual do terminal.
+Faça essa inserção e me avise. Depois vamos ao terceiro ajuste: verificar se o modelo selecionado realmente chega ao `generate_content()`.
