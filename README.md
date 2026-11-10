@@ -450,12 +450,12 @@ A integração I2 utiliza a API do Google Gemini para gerar dados estruturados c
 #### Configuração do modelo
 
 A variável `GEMINI_MODEL` permite selecionar o modelo utilizado na extração.
-Caso não seja configurada ou esteja vazia, será utilizado `gemini-3.8-flash`.
+Caso não seja configurada ou esteja vazia, será utilizado `gemini-3.5-flash-lite`.
 
 **Linux/macOS:**
 ```bash
-export GEMINI_MODEL="gemini-3.1-flash-lite"
-$env:GEMINI_MODEL="gemini-3.1-flash-lite"
+export GEMINI_MODEL="gemini-3.5-flash-lite"
+$env:GEMINI_MODEL="gemini-3.5-flash-lite"
 ```
 
 #### Instalação das dependências de IA
