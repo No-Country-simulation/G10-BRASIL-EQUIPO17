@@ -328,3 +328,34 @@ class MotorRegrasDeterministico:
                 Evento(codigo="REGRA_APLICADA", descricao=f"Regra {principal['id']} aplicada por precedência.")
             ],
         )
+
+
+def validar_metadados_resultado(resultado: ResultadoTriagem) -> bool:
+    """Confere a saida contra as regras canonicas do I4, sem recalcular a decisao.
+
+    I1 usa esta verificacao para rejeitar destino, prioridade ou status que
+    discordem do catalogo validado pelo motor deterministico.
+    """
+    if not isinstance(resultado, ResultadoTriagem):
+        return False
+
+    regras, _ = _carregar_configuracao(
+        _ARQUIVO_ROTEAMENTO, _ARQUIVO_VALIDACAO
+    )
+    decisao = resultado.decisao_roteamento
+    regra = regras.get(decisao.regra_principal)
+    if regra is None:
+        return False
+
+    status_esperado = (
+        "aguardando_auditoria"
+        if regra["requer_revisao_humana"]
+        else "processado"
+    )
+    return (
+        decisao.destino_principal == regra["destino"]
+        and decisao.requer_revisao_humana == regra["requer_revisao_humana"]
+        and resultado.classificacao.nivel_prioridade_documental == regra["prioridade"]
+        and resultado.status == status_esperado
+        and decisao.versao_regras == "0.1"
+    )
