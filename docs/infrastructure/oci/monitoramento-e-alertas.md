@@ -8,8 +8,27 @@
 **Namespace:** `oci_objectstorage`
 **Bucket monitorado:** `mediflow-docs-dev`
 **Limite configurado:** 1 GiB (1.073.741.824 bytes)
+**Condição:** Maior que o limite configurado
 **Severidade:** Warning
 **Estado:** Disabled
+
+### Expressão de consulta (MQL)
+
+```text
+StoredBytes[1h]{resourceDisplayName = "mediflow-docs-dev"}.mean() > 1073741824
+```
+
+### Parâmetros de avaliação
+
+| Parâmetro | Valor |
+|---|---|
+| Intervalo | 1 hora |
+| Estatística | Mean |
+| Dimensão | `resourceDisplayName` |
+| Valor da dimensão | `mediflow-docs-dev` |
+| Operador | Maior que (`>`) |
+| Limite | 1.073.741.824 bytes |
+| Severidade | Warning |
 
 ### Configuração de notificações
 
