@@ -28,8 +28,24 @@ jobs:
           cache-dependency-path: pyproject.toml
       - name: Instalar Tesseract OCR
         run: |
-          sudo apt-get update
-          sudo apt-get install -y tesseract-ocr tesseract-ocr-por
+          for tentativa in 1 2 3; do
+            echo "Tentativa ${tentativa}/3: instalando Tesseract OCR..."
+
+            if sudo apt-get update -o Acquire::Retries=3 && \
+               sudo apt-get install -y tesseract-ocr tesseract-ocr-por; then
+              break
+            fi
+
+            if [ "$tentativa" -eq 3 ]; then
+              echo "Falha ao instalar Tesseract OCR após 3 tentativas."
+              exit 1
+            fi
+
+            sleep 15
+          done
+
+          tesseract --version
+          tesseract --list-langs
       - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip
