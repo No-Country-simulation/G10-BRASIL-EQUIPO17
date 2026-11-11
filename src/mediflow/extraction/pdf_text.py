@@ -20,11 +20,20 @@ def extrair_texto_imagem(conteudo: bytes) -> str:
             if imagem.format not in {"PNG", "JPEG"}:
                 raise ValueError("Formato de imagem não suportado.")
 
-            return pytesseract.image_to_string(
+            texto = pytesseract.image_to_string(
                 imagem,
                 lang="por",
                 timeout=OCR_TIMEOUT_SECONDS,
             ).strip()
+
+            if not texto:
+                return ""
+
+            if texto.startswith("[Página 1]"):
+                return texto
+
+            return f"[Página 1]\n{texto}"
+
     except UnidentifiedImageError as exc:
         raise ValueError("Não foi possível abrir a imagem.") from exc
 

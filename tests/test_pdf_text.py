@@ -125,6 +125,7 @@ def test_ocr_imagem_png():
 
     resultado = extrair_texto_imagem(conteudo)
 
+    assert resultado.startswith("[Página 1]\n")
     assert "DOCUMENTO FICTICIO" in resultado.upper()
 
 
@@ -133,6 +134,7 @@ def test_ocr_imagem_jpeg():
 
     resultado = extrair_texto_imagem(conteudo)
 
+    assert resultado.startswith("[Página 1]\n")
     assert "DOCUMENTO FICTICIO" in resultado.upper()
 
 
