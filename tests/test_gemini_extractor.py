@@ -244,7 +244,7 @@ def test_extrator_usa_modelo_padrao(monkeypatch):
     with patch("mediflow.extraction.gemini_extractor.genai.Client"):
         extrator = ExtratorGemini()
 
-    assert extrator.modelo == "gemini-3.8-flash"
+    assert extrator.modelo == "gemini-3.5-flash-lite"
 
 
 def test_extrator_usa_modelo_da_variavel_ambiente(monkeypatch):
@@ -273,7 +273,7 @@ def test_extrator_usa_modelo_padrao_quando_variavel_vazia(monkeypatch):
     with patch("mediflow.extraction.gemini_extractor.genai.Client"):
         extrator = ExtratorGemini()
 
-    assert extrator.modelo == "gemini-3.8-flash"
+    assert extrator.modelo == "gemini-3.5-flash-lite"
 
 
 def test_extrator_usa_modelo_padrao_quando_variavel_tem_apenas_espacos(monkeypatch):
@@ -283,7 +283,7 @@ def test_extrator_usa_modelo_padrao_quando_variavel_tem_apenas_espacos(monkeypat
     with patch("mediflow.extraction.gemini_extractor.genai.Client"):
         extrator = ExtratorGemini()
 
-    assert extrator.modelo == "gemini-3.8-flash"
+    assert extrator.modelo == "gemini-3.5-flash-lite"
 
 
 
