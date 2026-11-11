@@ -1,6 +1,6 @@
 # MediFlow — H11: controles de acesso local ao endpoint de processamento (I1)
 
-**Estado:** controles H11 aprovados com simulação local; CI pendente. Integração definitiva do endpoint ainda não realizada. 
+**Estado:** controles H11 aprovados com simulação local; CI pendente. Integração definitiva do endpoint ainda não realizada.
 **Escopo:** testes com dados sintéticos e FakeOCI/serviço simulado, sem credenciais ou chamadas reais a Gemini, LangGraph ou OCI.
 
 ## 1. Objetivo
