@@ -116,6 +116,19 @@ A configuração de rede proposta deverá contemplar:
 
 Uma sub-rede privada com saída controlada poderá ser avaliada em uma evolução futura, caso a arquitetura exija esse nível adicional de isolamento.
 
+### 5.1 Restrição de exposição pública
+
+A aplicação MediFlow não deverá ser exposta publicamente antes da implementação e validação dos seguintes controles de segurança:
+
+- Autenticação de usuários.
+- Autorização e controle de permissões de acesso.
+- Comunicação protegida por HTTPS/TLS.
+- Controles de acesso à aplicação e à infraestrutura.
+
+Até que esses requisitos sejam atendidos, o acesso à aplicação deverá permanecer restrito a ambientes controlados e origens autorizadas.
+
+A disponibilização pública da aplicação dependerá de validação técnica e aprovação do responsável pela infraestrutura.
+
 ## 6. Armazenamento e persistência
 
 O bucket `mediflow-docs-dev` poderá ser utilizado para armazenar documentos e arquivos necessários à aplicação.

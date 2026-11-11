@@ -17,7 +17,7 @@ Os grupos `mediflow-storage-devs`, `mediflow-infra-auditors` e `mediflow-infra-o
 
 ## Policies identificadas
 
-Durante a consulta ao menu Policies da OCI, foram identificadas cinco policies relacionadas ao MediFlow:
+Durante a auditoria, foram identificadas diretamente quatro policies na listagem disponível no Console OCI:
 
 | Policy | Statements | Descrição |
 |---|---:|---|
@@ -25,16 +25,10 @@ Durante a consulta ao menu Policies da OCI, foram identificadas cinco policies r
 | `mediflow-i2-object-storage-policy` | 4 | Leitura e gerenciamento de objetos no bucket do projeto |
 | `mediflow-devs-storage-access-policy` | 2 | Leitura de buckets e gerenciamento de objetos |
 | `mediflow-storage-policy` | 1 | Gerenciamento de buckets e objetos |
-| `mediflow-monitoring-ops-policy` | --- | --- |
 
+Além dessas, a policy `mediflow-monitoring-ops-policy` foi informada pelo administrador da tenancy como previamente configurada, mas não pôde ser confirmada diretamente devido às limitações de permissões e escopo da consulta.
 
-### Policy de operações de monitoramento
-
-A policy `mediflow-monitoring-ops-policy` foi informada pelo administrador da tenancy como previamente configurada.
-
-Entretanto, sua existência e suas declarações não puderam ser confirmadas diretamente durante esta auditoria, devido às limitações de permissões e ao escopo de consulta disponível para o usuário responsável pelo levantamento.
-
-**Status:** configuração informada pelo administrador, pendente de confirmação direta na tenancy.
+Portanto, o levantamento registra quatro policies identificadas diretamente e uma policy informada pelo administrador, ainda pendente de confirmação.
 
 ## Análise da policy mediflow-infra-audit-policy
 

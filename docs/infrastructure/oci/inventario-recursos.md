@@ -10,7 +10,6 @@ O objetivo é registrar os recursos existentes, suas finalidades e o estado de v
 
 | Propriedade | Informação |
 |---|---|
-| Tenancy | marcosgasco |
 | Região | Brazil East (São Paulo) |
 | Compartment | mediflow-dev |
 | Ambiente | Desenvolvimento |
@@ -26,7 +25,7 @@ O objetivo é registrar os recursos existentes, suas finalidades e o estado de v
 | IAM Group | mediflow-storage-devs | Existente |
 | IAM Group | mediflow-infra-auditors | Existente |
 | IAM Group | mediflow-infra-ops | Existente |
-| IAM Policy | mediflow-monitoring-ops-policy | Existente |
+| IAM Policy | mediflow-monitoring-ops-policy | Informada pelo administrador, ainda não confirmada diretamente. |
 
 ## 4. Validações realizadas
 
