@@ -1,7 +1,7 @@
 # MediFlow — H10: falhas parciais de persistência OCI (I1/I5)
 
-**Estado:** aprovado com simulação na execução local; validação da CI pendente. 
-**Ambiente:** simulado com `FakeOCI`, sem rede, credenciais ou gravações na OCI real.  
+**Estado:** aprovado com simulação na execução local; validação da CI pendente.
+**Ambiente:** simulado com `FakeOCI`, sem rede, credenciais ou gravações na OCI real.
 **Escopo:** protótipo educacional de triagem documental e administrativa, somente dados sintéticos. Não realiza decisões clínicas.
 
 ## Objetivo
