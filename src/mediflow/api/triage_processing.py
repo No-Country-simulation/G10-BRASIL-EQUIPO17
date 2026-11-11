@@ -32,7 +32,10 @@ _EXTENSOES = {"pdf": {".pdf"}, "png": {".png"}, "jpeg": {".jpg", ".jpeg"}}
 def somente_processamento_local(request: Request) -> None:
     """Portao adicional; nao e autenticacao para ambiente publico."""
     somente_desenvolvimento_local(request)
-    if os.getenv("MEDIFLOW_ENABLE_LOCAL_TRIAGE", "false").lower() != "true":
+    if (
+        os.getenv("MEDIFLOW_ENV", "").lower() != "development"
+        or os.getenv("MEDIFLOW_ENABLE_LOCAL_TRIAGE", "false").lower() != "true"
+    ):
         raise HTTPException(
             status_code=403,
             detail={
