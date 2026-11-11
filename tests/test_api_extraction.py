@@ -1,5 +1,6 @@
 """Testes da rota de extração real sem chamadas ao Gemini ou credenciais Oracle."""
 
+import json
 import os
 from hashlib import sha256
 from pathlib import Path
@@ -18,6 +19,48 @@ PDF = (
     Path(__file__).resolve().parents[1]
     / "amostras/pdf/DOC-001_laudo_laboratorial_rotina.pdf"
 ).read_bytes()
+
+
+def caminhos_diferentes(atual, esperado, caminho=""):
+    diferencas = []
+
+    if isinstance(atual, dict) and isinstance(esperado, dict):
+        chaves = set(atual) | set(esperado)
+
+        for chave in sorted(chaves):
+            novo_caminho = f"{caminho}.{chave}" if caminho else chave
+
+            if chave not in atual or chave not in esperado:
+                diferencas.append(novo_caminho)
+            else:
+                diferencas.extend(
+                    caminhos_diferentes(
+                        atual[chave], esperado[chave], novo_caminho
+                    )
+                )
+
+    elif isinstance(atual, list) and isinstance(esperado, list):
+        if len(atual) != len(esperado):
+            diferencas.append(
+                f"{caminho}.quantidade "
+                f"(atual={len(atual)}, esperado={len(esperado)})"
+            )
+
+        for indice, (item_atual, item_esperado) in enumerate(
+            zip(atual, esperado)
+        ):
+            diferencas.extend(
+                caminhos_diferentes(
+                    item_atual,
+                    item_esperado,
+                    f"{caminho}[{indice}]",
+                )
+            )
+
+    elif atual != esperado:
+        diferencas.append(caminho or "<raiz>")
+
+    return diferencas
 
 
 class ArmazenamentoFake:
@@ -268,26 +311,62 @@ def test_extracao_rota_documentada_no_swagger(servico):
     )
 
 
+@pytest.mark.parametrize(
+    ("documento_id", "arquivo_relativo", "mime_type"),
+    [
+        (
+            "DOC-001",
+            "amostras/pdf/DOC-001_laudo_laboratorial_rotina.pdf",
+            "application/pdf",
+        ),
+        (
+            "DOC-002",
+            "amostras/pdf/DOC-002_laudo_imagem_alerta.pdf",
+            "application/pdf",
+        ),
+        (
+            "DOC-005",
+            "amostras/imagens/DOC-005_receita_ilegivel.png",
+            "image/png",
+        ),
+    ],
+)
 @pytest.mark.skipif(
     not os.getenv("GEMINI_API_KEY"),
     reason="GEMINI_API_KEY não configurada",
 )
-def test_fluxo_api_com_gemini_real(servico):
+def test_fluxo_api_com_gemini_real(
+    servico, documento_id, arquivo_relativo, mime_type
+):
     client, fake = servico
+    raiz = Path(__file__).resolve().parents[1]
 
-    recibo = enviar(client)
+    caminho_documento = raiz / arquivo_relativo
+    caminho_gabarito = raiz / "exemplos" / f"{documento_id}_extracao_ia.json"
+
+    recibo = enviar(
+        client,
+        data=caminho_documento.read_bytes(),
+        name=caminho_documento.name,
+        mime=mime_type,
+        documento_id=documento_id,
+    )
 
     response = extracao(client, recibo)
 
     assert response.status_code == 200, response.text
 
     resultado = ExtracaoIA.model_validate(response.json())
+    esperado = json.loads(caminho_gabarito.read_text(encoding="utf-8"))
 
-    assert resultado.documento_id == recibo["documento_id"]
-    assert resultado.tipo_documento == "laudo_laboratorial"
+    atual = resultado.model_dump(mode="json")
+    diferencas = caminhos_diferentes(atual, esperado)
+
+    assert not diferencas, (
+        f"Campos divergentes em {documento_id}:\n- "
+        + "\n- ".join(diferencas)
+    )
 
     chave_original = recibo["armazenamento_original"]["chave_original"]
     assert chave_original in fake.objetos
-
     assert fake.reads
-    assert chave_original in fake.reads
