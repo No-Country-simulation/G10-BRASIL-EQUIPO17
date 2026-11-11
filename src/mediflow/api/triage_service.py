@@ -162,6 +162,7 @@ class ServicoTriagem:
             or resultado.dados_extraidos != extracao_base.dados_extraidos
             or resultado.evidencias != extracao_base.evidencias
             or resultado.classificacao.tipo_documento != extracao_base.tipo_documento
+            or resultado.classificacao.especialidade_texto != extracao_base.especialidade_texto
             or resultado.status not in {"processado", "aguardando_auditoria"}
             or resultado.armazenamento_oci.status != "pendente"
         ):
@@ -174,6 +175,18 @@ class ServicoTriagem:
             or (not alerta_confirmado and (regra == "R001" or "R001" in disparadas))
         ):
             raise FalhaOrquestracao("ALERTA_SEM_CONFIRMACAO_INDEPENDENTE", "decisao")
+        if regra not in disparadas:
+            raise FalhaOrquestracao("RESULTADO_INCONSISTENTE", "decisao")
+
+        # O I4 e fonte de verdade: validar os metadados com o catalogo canonico.
+        try:
+            from mediflow.rules.motor_deterministico import validar_metadados_resultado
+
+            consistente = validar_metadados_resultado(resultado)
+        except Exception as exc:
+            raise FalhaOrquestracao("RESULTADO_INCONSISTENTE", "decisao") from exc
+        if not consistente:
+            raise FalhaOrquestracao("RESULTADO_INCONSISTENTE", "decisao")
 
         if self.persistidor is None:
             return resultado
