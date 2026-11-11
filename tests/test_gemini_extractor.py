@@ -237,3 +237,81 @@ def test_extrator_propaga_falha_de_comunicacao_com_gemini(monkeypatch):
     with pytest.raises(RuntimeError, match="Serviço Gemini indisponível"):
         extrator.extrair_texto(criar_entrada())
 
+def test_extrator_usa_modelo_padrao(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-ficticia")
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
+
+    with patch("mediflow.extraction.gemini_extractor.genai.Client"):
+        extrator = ExtratorGemini()
+
+    assert extrator.modelo == "gemini-3.5-flash-lite"
+
+
+def test_extrator_usa_modelo_da_variavel_ambiente(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-ficticia")
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
+
+    with patch("mediflow.extraction.gemini_extractor.genai.Client"):
+        extrator = ExtratorGemini()
+
+    assert extrator.modelo == "gemini-3.1-flash-lite"
+
+
+def test_extrator_prioriza_modelo_informado_no_construtor(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-ficticia")
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
+
+    with patch("mediflow.extraction.gemini_extractor.genai.Client"):
+        extrator = ExtratorGemini(modelo="gemini-3.8-flash")
+
+    assert extrator.modelo == "gemini-3.8-flash"
+
+def test_extrator_usa_modelo_padrao_quando_variavel_vazia(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-ficticia")
+    monkeypatch.setenv("GEMINI_MODEL", "")
+
+    with patch("mediflow.extraction.gemini_extractor.genai.Client"):
+        extrator = ExtratorGemini()
+
+    assert extrator.modelo == "gemini-3.5-flash-lite"
+
+
+def test_extrator_usa_modelo_padrao_quando_variavel_tem_apenas_espacos(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-ficticia")
+    monkeypatch.setenv("GEMINI_MODEL", "   ")
+
+    with patch("mediflow.extraction.gemini_extractor.genai.Client"):
+        extrator = ExtratorGemini()
+
+    assert extrator.modelo == "gemini-3.5-flash-lite"
+
+
+
+def test_extrator_envia_modelo_configurado_para_gemini(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-ficticia")
+
+    resposta_json = {
+        "contrato_versao": "0.1",
+        "documento_id": "doc-123",
+        "tipo_documento": "outro_desconhecido",
+        "dados_extraidos": {},
+    }
+
+    resposta = MagicMock()
+    resposta.text = __import__("json").dumps(resposta_json)
+
+    cliente_mock = MagicMock()
+    cliente_mock.models.generate_content.return_value = resposta
+
+    modelo_esperado = "gemini-3.1-flash-lite"
+
+    with patch(
+        "mediflow.extraction.gemini_extractor.genai.Client",
+        return_value=cliente_mock,
+    ):
+        extrator = ExtratorGemini(modelo=modelo_esperado)
+        extrator.extrair_texto(criar_entrada())
+
+    argumentos = cliente_mock.models.generate_content.call_args.kwargs
+
+    assert argumentos["model"] == modelo_esperado

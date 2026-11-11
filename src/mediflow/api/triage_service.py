@@ -178,6 +178,16 @@ class ServicoTriagem:
         if regra not in disparadas:
             raise FalhaOrquestracao("RESULTADO_INCONSISTENTE", "decisao")
 
+        # O I4 e fonte de verdade: validar os metadados com o catalogo canonico.
+        try:
+            from mediflow.rules.motor_deterministico import validar_metadados_resultado
+
+            consistente = validar_metadados_resultado(resultado)
+        except Exception as exc:
+            raise FalhaOrquestracao("RESULTADO_INCONSISTENTE", "decisao") from exc
+        if not consistente:
+            raise FalhaOrquestracao("RESULTADO_INCONSISTENTE", "decisao")
+
         if self.persistidor is None:
             return resultado
 
