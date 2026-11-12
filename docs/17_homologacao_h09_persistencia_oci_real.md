@@ -1,12 +1,19 @@
 # MediFlow — Registro da homologação H09: persistência real na OCI
 
-**Data da execução:** 08/11/2026 (BRT)  
-**Responsável pela execução:** I1 — Arquitetura, FastAPI e backend/integração OCI  
-**Referência de código:** `develop` — commit `10d69c0` (`fix(api): reforçar consistência dos resultados da triagem`, PR #28)  
-**Ambiente:** desenvolvimento, Oracle Cloud Infrastructure (Object Storage)  
-**Bucket:** `mediflow-docs-dev`  
-**Cenário:** `DOC-001` — laudo laboratorial sintético de rotina  
-**Critério:** H09 de [`16_criterios_homologacao_mvp.md`](16_criterios_homologacao_mvp.md)  
+**Data da execução:** 08/11/2026 (BRT)
+
+**Responsável pela execução:** I1 — Arquitetura, FastAPI e backend/integração OCI
+
+**Referência de código:** `develop` — commit `10d69c0` (`fix(api): reforçar consistência dos resultados da triagem`, PR #28)
+
+**Ambiente:** desenvolvimento, Oracle Cloud Infrastructure (Object Storage)
+
+**Bucket:** `mediflow-docs-dev`
+
+**Cenário:** `DOC-001` — laudo laboratorial sintético de rotina
+
+**Critério:** H09 de [`16_criterios_homologacao_mvp.md`](16_criterios_homologacao_mvp.md)
+
 **Resultado:** **APROVADO REAL CONTROLADO — apenas o componente de persistência OCI**
 
 ## 1. Objetivo e limite da homologação
@@ -24,7 +31,7 @@ Esta execução **não homologa a triagem ponta a ponta**. O resultado `R005` fo
 - Persistência real: `mediflow.storage.triage_persistence.persistir_resultado`.
 - Dependências locais: Python e SDK `oci`, com credenciais acessadas pelo perfil OCI do responsável; **nenhuma credencial foi armazenada neste registro**.
 
-> O script executado foi preparado para esta homologação. Se ele não for incluído no PR de documentação, a reexecução exigirá obter a cópia local utilizada no teste. Recomenda-se versioná-lo em `scripts/` após revisão, sem executá-lo automaticamente na CI.
+> O script utilizado nesta homologação está versionado em `scripts/homologar_h09_oci_real.py`. Sua execução com gravação exige autorização explícita e não faz parte da CI.
 
 ## 3. Procedimento realizado
 

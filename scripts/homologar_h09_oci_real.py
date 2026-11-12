@@ -62,7 +62,7 @@ def homologar(executar: bool) -> None:
 
     _validar(os.environ.get("OCI_BUCKET") == BUCKET_PERMITIDO,
              "BUCKET_NAO_AUTORIZADO: configure OCI_BUCKET=mediflow-docs-dev")
-    _validar(os.environ.get("MEDIFLOW_ENV", "development").lower() == "development",
+    _validar(os.environ.get("MEDIFLOW_ENV") == "development",
              "AMBIENTE_NAO_AUTORIZADO")
 
     # Importar somente na execução. Modo planejamento funciona sem SDK Oracle.
