@@ -115,6 +115,16 @@ class ExtratorGemini:
             "Evite evidências redundantes, genéricas ou que não comprovem diretamente "
             "o campo indicado. "
             "Use o menor trecho literal suficiente para comprovar cada informação. "
+            "Cada trecho_documento deve corresponder a um trecho literal, "
+            "contínuo e verificável do texto do documento. "
+            "Não reescreva, resuma, corrija ou complete o conteúdo das evidências. "
+            "Para preencher pagina, identifique o marcador [Página N] imediatamente "
+            "anterior ao trecho, considerando que ele se aplica até o próximo marcador. "
+            "Informe somente o número N da página em que o trecho aparece. "
+            "Nunca invente, estime ou deduza números de página. "
+            "Se não houver marcador de página que permita identificar a página da "
+            "evidência com segurança, preencha pagina com null. "
+            "Não confunda números citados no conteúdo do documento com números de página. "
 
         )
 

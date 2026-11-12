@@ -21,48 +21,6 @@ PDF = (
 ).read_bytes()
 
 
-def caminhos_diferentes(atual, esperado, caminho=""):
-    diferencas = []
-
-    if isinstance(atual, dict) and isinstance(esperado, dict):
-        chaves = set(atual) | set(esperado)
-
-        for chave in sorted(chaves):
-            novo_caminho = f"{caminho}.{chave}" if caminho else chave
-
-            if chave not in atual or chave not in esperado:
-                diferencas.append(novo_caminho)
-            else:
-                diferencas.extend(
-                    caminhos_diferentes(
-                        atual[chave], esperado[chave], novo_caminho
-                    )
-                )
-
-    elif isinstance(atual, list) and isinstance(esperado, list):
-        if len(atual) != len(esperado):
-            diferencas.append(
-                f"{caminho}.quantidade "
-                f"(atual={len(atual)}, esperado={len(esperado)})"
-            )
-
-        for indice, (item_atual, item_esperado) in enumerate(
-            zip(atual, esperado)
-        ):
-            diferencas.extend(
-                caminhos_diferentes(
-                    item_atual,
-                    item_esperado,
-                    f"{caminho}[{indice}]",
-                )
-            )
-
-    elif atual != esperado:
-        diferencas.append(caminho or "<raiz>")
-
-    return diferencas
-
-
 class ArmazenamentoFake:
     bucket = "bucket-sintetico"
 
@@ -360,13 +318,64 @@ def test_fluxo_api_com_gemini_real(
     esperado = json.loads(caminho_gabarito.read_text(encoding="utf-8"))
 
     atual = resultado.model_dump(mode="json")
-    diferencas = caminhos_diferentes(atual, esperado)
 
-    assert not diferencas, (
-        f"Campos divergentes em {documento_id}:\n- "
-        + "\n- ".join(diferencas)
+    assert atual["documento_id"] == documento_id
+    assert atual["tipo_documento"] == esperado["tipo_documento"]
+
+    dados = resultado.dados_extraidos
+
+    assert dados.paciente.nome, "Nome do paciente não foi extraído."
+
+    if documento_id == "DOC-001":
+        assert dados.exame.nome, "Nome do exame não foi extraído."
+        assert dados.data_emissao, "Data de emissão não foi extraída."
+
+    elif documento_id == "DOC-002":
+        assert dados.exame.conclusao, "Conclusão do exame não foi extraída."
+        assert (
+            resultado.sinais_documentais.marcador_urgencia_explicito is True
+        )
+        assert resultado.sinais_documentais.transcricao_marcador_urgencia
+
+    elif documento_id == "DOC-005":
+        assert dados.medicamentos, "Nenhum medicamento foi extraído."
+        assert dados.medicamentos[0].nome, "Nome do medicamento não foi extraído."
+        assert dados.profissional.nome, "Nome do profissional não foi extraído."
+        assert dados.profissional.crm_texto, "CRM não foi extraído."
+        assert dados.data_emissao, "Data de emissão não foi extraída."
+
+    campos_esperados = {
+        evidencia["campo"]
+        for evidencia in esperado["evidencias"]
+    }
+    campos_encontrados = {
+        evidencia.campo
+        for evidencia in resultado.evidencias
+    }
+
+    campos_ausentes = campos_esperados - campos_encontrados
+
+    assert not campos_ausentes, (
+        f"Evidências essenciais ausentes em {documento_id}: "
+        f"{sorted(campos_ausentes)}"
     )
 
+    evidencias_por_campo = {
+        evidencia.campo: evidencia
+        for evidencia in resultado.evidencias
+    }
+
+    for evidencia_esperada in esperado["evidencias"]:
+        campo = evidencia_esperada["campo"]
+        pagina_esperada = evidencia_esperada["pagina"]
+
+        assert evidencias_por_campo[campo].pagina == pagina_esperada, (
+            f"Página incorreta para a evidência {campo} em {documento_id}: "
+            f"esperada={pagina_esperada}, "
+            f"obtida={evidencias_por_campo[campo].pagina}"
+        )
+
     chave_original = recibo["armazenamento_original"]["chave_original"]
+
     assert chave_original in fake.objetos
-    assert fake.reads
+    assert chave_original in fake.reads
