@@ -139,9 +139,10 @@ def extrair_documento(
             )
         else:
             logger.warning(
-                "Falha na extração: documento_id=%s tipo=%s",
+                "Falha na extração: documento_id=%s tipo=%s motivo=%s",
                 documento_id,
                 type(exc).__name__,
+                str(exc)[:200],
             )
         raise HTTPException(
             status_code=502,
