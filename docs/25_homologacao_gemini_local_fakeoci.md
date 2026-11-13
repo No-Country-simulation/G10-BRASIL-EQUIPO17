@@ -20,6 +20,68 @@ por fixture permanecem intactas. O contrato público continua sendo
 - Não confundir com a homologação H09 (OCI real com fixture); aqui o armazenamento
   continua **exclusivamente em memória**.
 
+## Homologação real do extrator Gemini — 12/11/2026
+
+### Escopo executado
+
+Foi realizada homologação real do adaptador de extração documental com chamadas à API do Gemini, utilizando exclusivamente as amostras sintéticas oficiais do projeto.
+
+Modelo configurado durante a execução: `gemini-3.1-flash-lite`.
+
+| Documento | Amostra | Resultado | Tempo observado |
+|---|---|---|---:|
+| DOC-001 | Laudo laboratorial de rotina (PDF) | Aprovado | 4,10 s |
+| DOC-002 | Laudo de imagem com alerta (PDF) | Aprovado | 6,14 s |
+| DOC-005 | Receita ilegível (PNG) | Aprovado | 19,44 s |
+
+Os três testes reais foram executados individualmente e passaram.
+
+### Correção identificada durante a homologação
+
+No DOC-002, foi identificada uma divergência na associação das evidências do marcador explícito de urgência.
+
+O Gemini preenchia o sinal documental, mas não associava uma evidência independente ao campo `sinais_documentais.marcador_urgencia_explicito`.
+
+O prompt do extrator foi ajustado para exigir evidências independentes para:
+
+- `sinais_documentais.marcador_urgencia_explicito`;
+- `sinais_documentais.transcricao_marcador_urgencia`, quando preenchido.
+
+Os dois campos podem utilizar o mesmo trecho literal do documento, mas precisam possuir evidências próprias.
+
+Após a correção, o teste real do DOC-002 passou.
+
+### Testes automatizados
+
+Execução da suíte sem chamadas reais ao Gemini:
+
+```bash
+pytest -q -k "not fluxo_api_com_gemini_real"
+```
+
+Resultado em 12/11/2026:
+
+```text
+463 passed, 3 deselected in 7.39s
+```
+
+Os três testes desconsiderados nessa execução correspondem aos casos reais parametrizados do Gemini, que foram executados separadamente.
+
+### Limites da evidência
+
+- Os resultados demonstram que os três casos sintéticos passaram nas execuções observadas.
+- Os tempos são observações individuais, não uma avaliação estatística de latência.
+- Não representam avaliação de acurácia geral, custo operacional ou estabilidade sob carga.
+- Esta homologação não comprova persistência em OCI real.
+- Não representa homologação integral da composição HTTP com LangGraph.
+- O projeto permanece um protótipo educacional, sem finalidade de diagnóstico ou decisão clínica.
+
+### Registro da correção
+
+Commit: `1029233` — `fix(i2): reforçar evidências de urgência no Gemini`.
+
+Branch: `feat/i2-homologacao-gemini`.
+
 ## Restrições essenciais
 
 - Somente os bytes e nomes **exatamente iguais** às amostras oficiais `DOC-001`,
