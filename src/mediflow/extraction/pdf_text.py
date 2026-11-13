@@ -26,13 +26,13 @@ def extrair_texto_imagem(conteudo: bytes) -> str:
                 timeout=OCR_TIMEOUT_SECONDS,
             ).strip()
 
-            if not texto:
-                return ""
+        if not texto:
+            return ""
 
-            if texto.startswith("[Página 1]"):
-                return texto
+        if texto.startswith("[Página 1]"):
+            return texto
 
-            return f"[Página 1]\n{texto}"
+        return f"[Página 1]\n{texto}"
 
     except UnidentifiedImageError as exc:
         raise ValueError("Não foi possível abrir a imagem.") from exc

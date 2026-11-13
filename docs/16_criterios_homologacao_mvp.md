@@ -46,20 +46,20 @@ Para todos: `documento_id` consistente, evidências referentes a texto efetivame
 
 ## 4. Matriz técnica por etapa
 
-| Código | Critério de aceite verificável | Dono | Método de evidência | Situação inicial |
+| Código | Critério de aceite verificável | Dono | Método de evidência | Situação registrada |
 |---|---|---|---|---|
 | H01 | Upload de PDF/PNG sintético retorna recibo vinculando `documento_id`, `arquivo_id`, nome, MIME, tamanho e SHA-256 | I1/I5 | API + inspeção de recibo | Pendente na execução ponta a ponta |
 | H02 | Documento recuperado corresponde byte a byte ao original; adulteração bloqueia processamento | I1/I5 | Teste negativo SHA-256 | Aprovado com simulação em testes anteriores; revalidar integração |
 | H03 | I2 classifica e extrai campos no contrato `ExtracaoIA v0.1`, sem valores inventados | I2 | Teste automatizado + chamada Gemini controlada | Aprovado com simulação; real pendente |
 | H04 | Evidências possuem trecho real e referência de página válida (ou página nula com trecho verificável) | I2 | Teste de integridade textual | Aprovado com simulação; real pendente |
-| H05 | I3 retorna `RecuperacaoRAG` com `fonte_id`, versão e URL verificável quando houver referência; não decide roteamento | I3/I1 | Testes do recuperador definitivo + I1 | Bloqueado: PR #16 ainda não integrado inicialmente |
-| H06 | I4 confirma alerta do DOC-002 diretamente no original, de modo independente da LLM; R001 tem precedência | I4 | Testes com alerta confirmado/não confirmado e ambiguidades concomitantes | Bloqueado: I4 definitivo pendente |
-| H07 | DOC-001/DOC-002/DOC-005 apresentam os destinos, regras, revisão e status previstos na seção 3 | I4/I1 | Testes parametrizados + execução final | Aprovado com simulação; real bloqueado |
-| H08 | Falha do RAG é registrada como `falha` e não altera a prioridade/decisão do I4 | I1/I3/I4 | Teste negativo com erro injetado | Aprovado com simulação; revalidar integração |
-| H09 | OCI grava resultado e histórico da mesma execução; leitura posterior confirma integridade e associação ao arquivo | I1/I5 | Testes com fake + bucket de desenvolvimento autorizado | Aprovado com simulação; OCI real pendente |
-| H10 | Falha parcial OCI não retorna sucesso nem `armazenamento_oci.status=confirmado` | I1/I5 | Teste de falha entre gravações | Aprovado com simulação; revalidar integração |
-| H11 | Endpoint `/processar` funciona **somente** em ambiente local autorizado; não publica rota sem composição/configuração segura | I1 | Testes HTTP, flags e Swagger local | Pendente: router ainda não registrado na aplicação |
-| H12 | Entrada inválida, documento inexistente, falha externa e contrato inconsistente resultam em erro sanitizado e HTTP apropriado | I1/I2/I5 | Testes 403/404/422/502/503, conforme caso | Parcial; revalidar ponta a ponta |
+| H05 | I3 retorna `RecuperacaoRAG` com `fonte_id`, versão e URL verificável quando houver referência; não decide roteamento | I3/I1 | Testes do recuperador definitivo + I1 | RAG real integrado e testado localmente; fluxo completo pendente |
+| H06 | I4 confirma alerta do DOC-002 diretamente no original, de modo independente da LLM; R001 tem precedência | I4 | Testes com alerta confirmado/não confirmado e ambiguidades concomitantes | Confirmacao independente, regras e LangGraph reais testados localmente |
+| H07 | DOC-001/DOC-002/DOC-005 apresentam os destinos, regras, revisão e status previstos na seção 3 | I4/I1 | Testes parametrizados + execução final | Aprovado com fixtures no fluxo HTTP demonstrativo; Gemini real pendente |
+| H08 | Falha do RAG é registrada como `falha` e não altera a prioridade/decisão do I4 | I1/I3/I4 | Teste negativo com erro injetado | Aprovado com falha RAG simulada e motor deterministico real |
+| H09 | OCI grava resultado e histórico da mesma execução; leitura posterior confirma integridade e associação ao arquivo | I1/I5 | Testes com fake + bucket de desenvolvimento autorizado | Aprovado real controlado em DOC-001 com fixture (08/11/2026); nao ponta a ponta |
+| H10 | Falha parcial OCI não retorna sucesso nem `armazenamento_oci.status=confirmado` | I1/I5 | Teste de falha entre gravações | Aprovado com FakeOCI e testes ampliados; falhas na OCI real pendentes |
+| H11 | Endpoint `/processar` funciona **somente** em ambiente local autorizado; não publica rota sem composição/configuração segura | I1 | Testes HTTP, flags e Swagger local | Aprovado em aplicacao HTTP local; API principal sem rota de processamento |
+| H12 | Entrada inválida, documento inexistente, falha externa e contrato inconsistente resultam em erro sanitizado e HTTP apropriado | I1/I2/I5 | Testes 403/404/422/502/503, conforme caso | Testes HTTP locais aprovados; falhas externas reais pendentes |
 | H13 | CI Python 3.12/3.13, suíte completa e `compileall` aprovados, sem segredos ou arquivos reais no Git | Todos | Checks GitHub + revisão de diff | Revalidar no commit final |
 | H14 | Demonstração documentada dos três cenários, com JSON sanitizado, timestamp, commit e identificador do teste | I1/I6 | Registro de execução e vídeo/roteiro se necessário | Pendente |
 
@@ -85,15 +85,16 @@ Para todos: `documento_id` consistente, evidências referentes a texto efetivame
 
 ### P1 — Integração de código
 
-- [ ] PR #16 do I3 integrado e recuperador real acoplado a `AdaptadorRAGI3`.
-- [ ] Implementações definitivas I4 (`ConfirmadorAlerta`, `DecisorTriagem`) integradas com testes de precedência.
-- [ ] `ServicoTriagem` composto com I2/I3/I4/I5 em ambiente de teste, com interfaces e contratos preservados.
-- [ ] API `/processar` registrada somente após validação de ambiente, dependências e segurança.
+- [x] Recuperador RAG real integrado e testado localmente (PR #16).
+- [x] Confirmador independente, motor de regras e LangGraph integrados (PR #33).
+- [x] Orquestracao integrada com extracao por fixture, RAG, LangGraph e FakeOCI (PR #37).
+- [x] Rota de processamento registrada na aplicacao demonstrativa local (PRs #31 e #42).
+- [ ] Integrar Gemini e persistencia OCI reais ao processamento completo.
 
 ### P2 — Execução controlada de serviços reais
 
 - [ ] Gemini real homologado com documentos sintéticos, custo/latência anotados e sem segredos.
-- [ ] OCI real homologada no ambiente de desenvolvimento autorizado, com leitura de retorno e histórico.
+- [x] Persistencia OCI real homologada com fixture DOC-001 (H09); fluxo completo pendente.
 - [ ] DOC-001, DOC-002 e DOC-005 passaram nos resultados da seção 3 sem correção manual oculta.
 - [ ] Falhas obrigatórias da seção 5 reproduzidas e registradas.
 

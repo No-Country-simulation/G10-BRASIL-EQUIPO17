@@ -3,7 +3,7 @@
 Executados com dados sintéticos e componentes simulados.
 Não acessam Gemini, OCI ou LangGraph reais.
 
-A validação entre regra e destino permanece pendente do I4.
+A validação entre regra e destino utiliza o catálogo determinístico do I4.
 """
 
 import pytest
@@ -138,7 +138,7 @@ def test_i1_nao_mistura_dois_uploads_do_mesmo_documento():
     assert saida_a.armazenamento_oci.chave_resultado != saida_b.armazenamento_oci.chave_resultado
 
 
-# Regressões corrigidas no I1. A validação regra/destino segue pendente do I4.
+# Regressões de consistência do I1.
 
 
 def test_i1_especialidade_nao_pode_ser_inventada_pelo_decisor():
@@ -158,10 +158,12 @@ def test_i1_regra_principal_deve_estar_em_disparadas():
         servico.executar(documento("DOC-002", marcador=True), canal_origem="teste")
 
 
-@pytest.mark.xfail(strict=True, reason="Validacao R005/destino compete ao motor I4")
-def test_lacuna_i4_destino_deve_combinar_com_regra_principal():
+@pytest.mark.parametrize(
+    "destino_incorreto", ["auditoria_autorizacoes", "fila_farmacia_documental"]
+)
+def test_lacuna_i4_destino_deve_combinar_com_regra_principal(destino_incorreto):
     servico = _pipeline(
-        lambda r: setattr(r.decisao_roteamento, "destino_principal", "auditoria_autorizacoes")
+        lambda r: setattr(r.decisao_roteamento, "destino_principal", destino_incorreto)
     )
     with pytest.raises(FalhaOrquestracao, match="RESULTADO_INCONSISTENTE"):
         servico.executar(documento("DOC-001"), canal_origem="teste")

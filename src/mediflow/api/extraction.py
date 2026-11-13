@@ -1,6 +1,7 @@
 """Integração real com o extrator Gemini."""
 
 import hashlib
+import logging
 
 from typing import Annotated
 
@@ -16,6 +17,8 @@ from mediflow.api.uploads import (
 from mediflow.extraction.port import DocumentoParaExtracao, ExtratorDocumento
 from mediflow.storage.oci_storage import OCIStorage
 from mediflow_contracts.models import ExtracaoIA
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/triagens", tags=["integracao-ia"])
 
@@ -121,6 +124,25 @@ def extrair_documento(
         resultado_bruto = extrator.extrair(documento)
         resultado = ExtracaoIA.model_validate(resultado_bruto)
     except (ValidationError, ValueError, TypeError) as exc:
+        if isinstance(exc, ValidationError):
+            erros = [
+                {
+                    "campo": ".".join(str(item) for item in erro["loc"]),
+                    "tipo": erro["type"],
+                }
+                for erro in exc.errors()
+            ]
+            logger.warning(
+                "Falha de validação na extração: documento_id=%s erros=%s",
+                documento_id,
+                erros,
+            )
+        else:
+            logger.warning(
+                "Falha na extração: documento_id=%s tipo=%s",
+                documento_id,
+                type(exc).__name__,
+            )
         raise HTTPException(
             status_code=502,
             detail={
