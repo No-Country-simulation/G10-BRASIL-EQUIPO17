@@ -237,25 +237,32 @@ def test_extracao_nao_permite_trocar_documento_id(servico):
         == "EXTRACAO_DOCUMENTO_DIVERGENTE"
     )
 
-def test_extracao_excecao_sem_vazamento_de_dados(servico):
+def test_extracao_excecao_sem_vazamento_de_dados(servico, caplog):
     client, fake = servico
     recibo = enviar(client)
 
+    segredo = "GEMINI_API_KEY=CHAVE_FICTICIA_NAO_PUBLICAR"
+
     class ExtratorComFalha:
         def extrair(self, documento):
-            raise RuntimeError(
-                "GEMINI_API_KEY=SENHA_FALSA_NUNCA_EXIBIR"
-            )
+            raise ValueError(segredo)
 
     app.dependency_overrides[extrator_gemini] = (
         lambda: ExtratorComFalha()
     )
 
-    response = extracao(client, recibo)
+    with caplog.at_level(
+        "WARNING", logger="mediflow.api.extraction"
+    ):
+        response = extracao(client, recibo)
 
     assert response.status_code == 502
-    assert response.json()["detail"]["codigo"] == "EXTRATOR_INDISPONIVEL"
-    assert "SENHA_FALSA_NUNCA_EXIBIR" not in response.text
+    assert (
+        response.json()["detail"]["codigo"]
+        == "EXTRACAO_CONTRATO_INVALIDO"
+    )
+    assert segredo not in response.text
+    assert segredo not in caplog.text
 
 
 def test_extracao_rota_documentada_no_swagger(servico):
