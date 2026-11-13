@@ -23,7 +23,7 @@ Durante a auditoria, foram identificadas diretamente quatro policies na listagem
 |---|---:|---|
 | `mediflow-infra-audit-policy` | 8 | Consulta para auditoria IAM, infraestrutura e observabilidade |
 | `mediflow-i2-object-storage-policy` | 4 | Leitura e gerenciamento de objetos no bucket do projeto |
-| `mediflow-devs-storage-access-policy` | 2 | Leitura de buckets e gerenciamento de objetos |
+| `mediflow-devs-storage-access-policy` | 2 | Leitura de buckets e objetos |
 | `mediflow-storage-policy` | 1 | Gerenciamento de buckets e objetos |
 
 Além dessas, a policy `mediflow-monitoring-ops-policy` foi informada pelo administrador da tenancy como previamente configurada, mas não pôde ser confirmada diretamente devido às limitações de permissões e escopo da consulta.
@@ -86,6 +86,16 @@ A permissão `inspect all-resources` oferece visibilidade ampla dos recursos do 
 - Avaliar se a leitura de metadados de todos os buckets do compartment é realmente necessária.
 - Confirmar se a restrição aos caminhos `originais/I2-*/` e `metadados/I2-*/` corresponde à organização de armazenamento definida pelo projeto.
 - Manter o princípio do menor privilégio.
+
+### Compatibilidade com os caminhos utilizados pela aplicação
+
+Foi identificada uma possível divergência entre os prefixos definidos na policy e os caminhos utilizados atualmente pela aplicação FastAPI.
+
+A policy restringe a criação de objetos aos prefixos `originais/I2-*/` e `metadados/I2-*/`, enquanto a aplicação utiliza caminhos como `originais/DOC-001/...`.
+
+Dessa forma, a compatibilidade entre as permissões IAM atuais e os caminhos utilizados pela aplicação ainda precisa ser validada.
+
+Recomenda-se alinhar essa verificação com o responsável pela arquitetura e pelo desenvolvimento da API. Nenhuma alteração nas permissões da policy foi realizada durante esta auditoria.
 
 **Conclusão:** a policy apresenta restrições específicas para criação de objetos, mas possui uma permissão de consulta de buckets com escopo mais amplo.
 
