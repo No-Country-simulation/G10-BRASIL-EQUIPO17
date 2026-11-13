@@ -41,7 +41,8 @@ O **MediFlow** é um protótipo educacional para receber documentos de saúde **
 | Resultado estruturado em `ResultadoTriagem v0.1` | **Implementado** com validação Pydantic |
 | Persistência de originais, manifestos, históricos e resultados | Adaptador implementado; **OCI real homologada isoladamente** no cenário H09; FakeOCI usada no fluxo demonstrativo |
 | Demonstração dos três cenários | **3/3 aprovados com simulação** no critério H14 |
-| Interface gráfica e revisão humana operacional | **Ainda não integradas**; API HTTP local disponível |
+| Interface gráfica (Streamlit) | **Integrada às APIs locais** (envio, processamento, resultado e painel da sessão); ver [`src/mediflow/ui/README.md`](src/mediflow/ui/README.md) |
+| Revisão humana operacional | **Ainda não integrada**: a API não tem rota de revisão nem listagem de triagens |
 | Deploy público, autenticação e uso clínico | **Não implementados ou autorizados** |
 
 **Interpretação:** código disponível, CI verde e testes com fakes **não** equivalem a homologação de serviços externos nem a um MVP clínico em produção. O status da branch `main` pode ser anterior ao da `develop`; consulte o [histórico de integração](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pulls) antes de promover uma versão.
@@ -52,7 +53,7 @@ O repositório é um **monorepo Python** organizado por funcionalidades. O servi
 
 ```mermaid
 flowchart TB
-    CLI["Swagger / cliente HTTP<br/>Interface visual: integração pendente"] --> API["FastAPI<br/>aplicações locais isoladas"]
+    CLI["Swagger / cliente HTTP<br/>Interface Streamlit"] --> API["FastAPI<br/>aplicações locais isoladas"]
     API --> ING["Ingestão e manifesto<br/>MIME, extensão, limites e SHA-256"]
     ING --> STORAGE["Armazenamento do original<br/>FakeOCI na demonstração"]
     STORAGE --> ORCH["Serviço de orquestração documental"]
@@ -178,7 +179,7 @@ O DOC-005 preserva a dose ilegível como `null`; **não há preenchimento por su
 │   │   ├── rag/                   # Recuperador e fichas de referência
 │   │   ├── rules/                 # Motor determinístico e confirmação
 │   │   ├── storage/               # OCIStorage e persistência
-│   │   └── ui/                    # Estrutura de interface; integração pendente
+│   │   └── ui/                    # Interface Streamlit (streamlit run src/mediflow/ui/app.py)
 │   └── mediflow_contracts/        # Pydantic v0.1 e contratos canônicos
 ├── tests/                           # Testes de contrato, integração e falha
 ├── CONTRIBUTING.md                  # Convenções de contribuição
@@ -240,7 +241,11 @@ Abra `http://127.0.0.1:8000/docs` para o Swagger e `http://127.0.0.1:8000/demo/e
 
 ### 2. Enviar um documento
 
-Em **outro PowerShell**, posicionado na raiz do repositório:
+**Pela interface visual:** em outro PowerShell, na raiz do repositório, rode
+`.\.venv\Scripts\python.exe -m streamlit run src/mediflow/ui/app.py` (requer `pip install -e '.[ui]'`)
+e envie um arquivo de `amostras/` na página **Enviar documento**. Detalhes em [`src/mediflow/ui/README.md`](src/mediflow/ui/README.md).
+
+**Pela linha de comando:** em **outro PowerShell**, posicionado na raiz do repositório:
 
 ```powershell
 $recibo = curl.exe -sS -X POST "http://127.0.0.1:8000/v1/triagens/arquivos" `
