@@ -315,6 +315,7 @@ def test_fluxo_api_com_gemini_real(
     assert response.status_code == 200, response.text
 
     resultado = ExtracaoIA.model_validate(response.json())
+
     esperado = json.loads(caminho_gabarito.read_text(encoding="utf-8"))
 
     atual = resultado.model_dump(mode="json")
@@ -332,9 +333,7 @@ def test_fluxo_api_com_gemini_real(
 
     elif documento_id == "DOC-002":
         assert dados.exame.conclusao, "Conclusão do exame não foi extraída."
-        assert (
-            resultado.sinais_documentais.marcador_urgencia_explicito is True
-        )
+        assert resultado.sinais_documentais.marcador_urgencia_explicito is True
         assert resultado.sinais_documentais.transcricao_marcador_urgencia
 
     elif documento_id == "DOC-005":
@@ -344,12 +343,16 @@ def test_fluxo_api_com_gemini_real(
         assert dados.profissional.crm_texto, "CRM não foi extraído."
         assert dados.data_emissao, "Data de emissão não foi extraída."
 
+    def normalizar_campo(campo: str) -> str:
+        return campo.removeprefix("dados_extraidos.")
+
     campos_esperados = {
-        evidencia["campo"]
+        normalizar_campo(evidencia["campo"])
         for evidencia in esperado["evidencias"]
     }
+
     campos_encontrados = {
-        evidencia.campo
+        normalizar_campo(evidencia.campo)
         for evidencia in resultado.evidencias
     }
 
@@ -360,20 +363,28 @@ def test_fluxo_api_com_gemini_real(
         f"{sorted(campos_ausentes)}"
     )
 
-    evidencias_por_campo = {
-        evidencia.campo: evidencia
-        for evidencia in resultado.evidencias
-    }
+    evidencias_encontradas = list(resultado.evidencias)
 
     for evidencia_esperada in esperado["evidencias"]:
-        campo = evidencia_esperada["campo"]
+        campo = normalizar_campo(evidencia_esperada["campo"])
         pagina_esperada = evidencia_esperada["pagina"]
 
-        assert evidencias_por_campo[campo].pagina == pagina_esperada, (
-            f"Página incorreta para a evidência {campo} em {documento_id}: "
-            f"esperada={pagina_esperada}, "
-            f"obtida={evidencias_por_campo[campo].pagina}"
+        indice = next(
+            (
+                i
+                for i, evidencia in enumerate(evidencias_encontradas)
+                if normalizar_campo(evidencia.campo) == campo
+                and evidencia.pagina == pagina_esperada
+            ),
+            None,
         )
+
+        assert indice is not None, (
+            f"Evidência ausente ou com página incorreta em {documento_id}: "
+            f"campo={campo}, página esperada={pagina_esperada}"
+        )
+
+        evidencias_encontradas.pop(indice)
 
     chave_original = recibo["armazenamento_original"]["chave_original"]
 
