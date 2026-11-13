@@ -1,5 +1,6 @@
 """Testes da rota de extração real sem chamadas ao Gemini ou credenciais Oracle."""
 
+import json
 import os
 from hashlib import sha256
 from pathlib import Path
@@ -236,25 +237,32 @@ def test_extracao_nao_permite_trocar_documento_id(servico):
         == "EXTRACAO_DOCUMENTO_DIVERGENTE"
     )
 
-def test_extracao_excecao_sem_vazamento_de_dados(servico):
+def test_extracao_excecao_sem_vazamento_de_dados(servico, caplog):
     client, fake = servico
     recibo = enviar(client)
 
+    segredo = "GEMINI_API_KEY=CHAVE_FICTICIA_NAO_PUBLICAR"
+
     class ExtratorComFalha:
         def extrair(self, documento):
-            raise RuntimeError(
-                "GEMINI_API_KEY=SENHA_FALSA_NUNCA_EXIBIR"
-            )
+            raise ValueError(segredo)
 
     app.dependency_overrides[extrator_gemini] = (
         lambda: ExtratorComFalha()
     )
 
-    response = extracao(client, recibo)
+    with caplog.at_level(
+        "WARNING", logger="mediflow.api.extraction"
+    ):
+        response = extracao(client, recibo)
 
     assert response.status_code == 502
-    assert response.json()["detail"]["codigo"] == "EXTRATOR_INDISPONIVEL"
-    assert "SENHA_FALSA_NUNCA_EXIBIR" not in response.text
+    assert (
+        response.json()["detail"]["codigo"]
+        == "EXTRACAO_CONTRATO_INVALIDO"
+    )
+    assert segredo not in response.text
+    assert segredo not in caplog.text
 
 
 def test_extracao_rota_documentada_no_swagger(servico):
@@ -268,14 +276,46 @@ def test_extracao_rota_documentada_no_swagger(servico):
     )
 
 
+@pytest.mark.parametrize(
+    ("documento_id", "arquivo_relativo", "mime_type"),
+    [
+        (
+            "DOC-001",
+            "amostras/pdf/DOC-001_laudo_laboratorial_rotina.pdf",
+            "application/pdf",
+        ),
+        (
+            "DOC-002",
+            "amostras/pdf/DOC-002_laudo_imagem_alerta.pdf",
+            "application/pdf",
+        ),
+        (
+            "DOC-005",
+            "amostras/imagens/DOC-005_receita_ilegivel.png",
+            "image/png",
+        ),
+    ],
+)
 @pytest.mark.skipif(
     not os.getenv("GEMINI_API_KEY"),
     reason="GEMINI_API_KEY não configurada",
 )
-def test_fluxo_api_com_gemini_real(servico):
+def test_fluxo_api_com_gemini_real(
+    servico, documento_id, arquivo_relativo, mime_type
+):
     client, fake = servico
+    raiz = Path(__file__).resolve().parents[1]
 
-    recibo = enviar(client)
+    caminho_documento = raiz / arquivo_relativo
+    caminho_gabarito = raiz / "exemplos" / f"{documento_id}_extracao_ia.json"
+
+    recibo = enviar(
+        client,
+        data=caminho_documento.read_bytes(),
+        name=caminho_documento.name,
+        mime=mime_type,
+        documento_id=documento_id,
+    )
 
     response = extracao(client, recibo)
 
@@ -283,11 +323,77 @@ def test_fluxo_api_com_gemini_real(servico):
 
     resultado = ExtracaoIA.model_validate(response.json())
 
-    assert resultado.documento_id == recibo["documento_id"]
-    assert resultado.tipo_documento == "laudo_laboratorial"
+    esperado = json.loads(caminho_gabarito.read_text(encoding="utf-8"))
+
+    atual = resultado.model_dump(mode="json")
+
+    assert atual["documento_id"] == documento_id
+    assert atual["tipo_documento"] == esperado["tipo_documento"]
+
+    dados = resultado.dados_extraidos
+
+    assert dados.paciente.nome, "Nome do paciente não foi extraído."
+
+    if documento_id == "DOC-001":
+        assert dados.exame.nome, "Nome do exame não foi extraído."
+        assert dados.data_emissao, "Data de emissão não foi extraída."
+
+    elif documento_id == "DOC-002":
+        assert dados.exame.conclusao, "Conclusão do exame não foi extraída."
+        assert resultado.sinais_documentais.marcador_urgencia_explicito is True
+        assert resultado.sinais_documentais.transcricao_marcador_urgencia
+
+    elif documento_id == "DOC-005":
+        assert dados.medicamentos, "Nenhum medicamento foi extraído."
+        assert dados.medicamentos[0].nome, "Nome do medicamento não foi extraído."
+        assert dados.profissional.nome, "Nome do profissional não foi extraído."
+        assert dados.profissional.crm_texto, "CRM não foi extraído."
+        assert dados.data_emissao, "Data de emissão não foi extraída."
+
+    def normalizar_campo(campo: str) -> str:
+        return campo.removeprefix("dados_extraidos.")
+
+    campos_esperados = {
+        normalizar_campo(evidencia["campo"])
+        for evidencia in esperado["evidencias"]
+    }
+
+    campos_encontrados = {
+        normalizar_campo(evidencia.campo)
+        for evidencia in resultado.evidencias
+    }
+
+    campos_ausentes = campos_esperados - campos_encontrados
+
+    assert not campos_ausentes, (
+        f"Evidências essenciais ausentes em {documento_id}: "
+        f"{sorted(campos_ausentes)}"
+    )
+
+    evidencias_encontradas = list(resultado.evidencias)
+
+    for evidencia_esperada in esperado["evidencias"]:
+        campo = normalizar_campo(evidencia_esperada["campo"])
+        pagina_esperada = evidencia_esperada["pagina"]
+
+        indice = next(
+            (
+                i
+                for i, evidencia in enumerate(evidencias_encontradas)
+                if normalizar_campo(evidencia.campo) == campo
+                and evidencia.pagina == pagina_esperada
+            ),
+            None,
+        )
+
+        assert indice is not None, (
+            f"Evidência ausente ou com página incorreta em {documento_id}: "
+            f"campo={campo}, página esperada={pagina_esperada}"
+        )
+
+        evidencias_encontradas.pop(indice)
 
     chave_original = recibo["armazenamento_original"]["chave_original"]
-    assert chave_original in fake.objetos
 
-    assert fake.reads
+    assert chave_original in fake.objetos
     assert chave_original in fake.reads

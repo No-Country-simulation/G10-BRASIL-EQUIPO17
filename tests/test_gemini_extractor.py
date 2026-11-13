@@ -198,7 +198,7 @@ def test_extrator_processa_imagem_e_encaminha_texto_ao_gemini(
     with (
         patch(
             "mediflow.extraction.gemini_extractor.extrair_texto_imagem",
-            return_value="Texto fictício extraído da imagem.",
+            return_value="[Página 1]\nTexto fictício extraído da imagem.",
         ) as mock_imagem,
         patch.object(
             extrator,
@@ -217,7 +217,7 @@ def test_extrator_processa_imagem_e_encaminha_texto_ao_gemini(
     mock_gemini.assert_called_once()
 
     entrada = mock_gemini.call_args.args[0]
-    assert entrada.documento_texto == "Texto fictício extraído da imagem."
+    assert entrada.documento_texto == "[Página 1]\nTexto fictício extraído da imagem."
     assert resultado is resultado_esperado
 
 def test_extrator_propaga_falha_de_comunicacao_com_gemini(monkeypatch):
