@@ -1,0 +1,73 @@
+# Tema MediFlow — Health Tech moderno.
+# Todo o visual (cores, fontes, raios, sidebar) é definido aqui, sem CSS injetado.
+# As secções [theme.light] e [theme.dark] mantêm o seletor claro/escuro nas definições.
+
+[theme]
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+headingFont = "'Plus Jakarta Sans':https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+baseFontSize = 15
+headingFontWeights = [800, 700, 700, 600, 600, 600]
+headingFontSizes = ["2.1rem", "1.5rem", "1.2rem", "1rem", "0.9rem", "0.8rem"]
+metricValueFontSize = "2rem"
+metricValueFontWeight = 700
+baseRadius = "0.85rem"
+buttonRadius = "full"
+showWidgetBorder = true
+showSidebarBorder = false
+linkUnderline = false
+paddingTop = "2rem"
+paddingBottom = "3rem"
+
+[theme.light]
+primaryColor = "#0f766e"
+backgroundColor = "#f6f9fb"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#0f172a"
+borderColor = "#e2e8f0"
+linkColor = "#0f766e"
+codeBackgroundColor = "#f1f5f9"
+greenColor = "#15803d"
+redColor = "#dc2626"
+orangeColor = "#d97706"
+blueColor = "#2563eb"
+dataframeHeaderBackgroundColor = "#f1f5f9"
+dataframeBorderColor = "#e2e8f0"
+chartCategoricalColors = ["#0f766e", "#2563eb", "#d97706", "#dc2626", "#7c3aed", "#0891b2", "#64748b"]
+
+[theme.dark]
+primaryColor = "#0d9488"
+backgroundColor = "#0b1220"
+secondaryBackgroundColor = "#111a2e"
+textColor = "#e2e8f0"
+borderColor = "#1e293b"
+linkColor = "#5eead4"
+codeBackgroundColor = "#111a2e"
+dataframeHeaderBackgroundColor = "#111a2e"
+dataframeBorderColor = "#1e293b"
+chartCategoricalColors = ["#2dd4bf", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa", "#22d3ee", "#94a3b8"]
+
+# Barra lateral escura em ambos os modos, para dar contraste à navegação.
+[theme.light.sidebar]
+backgroundColor = "#0b2530"
+secondaryBackgroundColor = "#123441"
+codeBackgroundColor = "#123441"
+textColor = "#e6f4f1"
+borderColor = "#1d4654"
+primaryColor = "#14b8a6"
+linkColor = "#5eead4"
+
+[theme.dark.sidebar]
+backgroundColor = "#060b16"
+secondaryBackgroundColor = "#0f172a"
+codeBackgroundColor = "#0f172a"
+textColor = "#e2e8f0"
+borderColor = "#1e293b"
+primaryColor = "#14b8a6"
+linkColor = "#5eead4"
+
+[server]
+maxUploadSize = 200  # a página valida o limite real (MAX_UPLOAD_MB) com mensagem própria
+
+[browser]
+gatherUsageStats = false

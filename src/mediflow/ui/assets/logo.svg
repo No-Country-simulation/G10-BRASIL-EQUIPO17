@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="184" height="40" viewBox="0 0 184 40">
+  <rect x="2" y="2" width="36" height="36" rx="10" fill="#14b8a6"/>
+  <path d="M16 10h8v6h6v8h-6v6h-8v-6h-6v-8h6z" fill="#ffffff"/>
+  <text x="48" y="27" font-family="Plus Jakarta Sans, Inter, Segoe UI, sans-serif" font-size="20" font-weight="800" fill="#e6f4f1">Medi<tspan fill="#5eead4">Flow</tspan></text>
+</svg>
