@@ -28,6 +28,7 @@ ai = [
     "google-genai>=1,<3",
 ]
 cloud = ["oci>=2,<3"]
+ui = ["streamlit[pdf]>=1.57,<2", "requests>=2.31,<3", "pandas>=2,<3", "altair>=5,<6"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -42,3 +43,4 @@ source = ["mediflow", "mediflow_contracts"]
 
 [tool.setuptools.package-data]
 "mediflow.rag" = ["base_conhecimento/*.md"]
+"mediflow.ui" = ["assets/*.svg"]
