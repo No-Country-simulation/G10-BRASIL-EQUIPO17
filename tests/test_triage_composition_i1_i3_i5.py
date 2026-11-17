@@ -81,8 +81,8 @@ def test_tres_cenarios_rag_e_oci_na_mesma_execucao(doc_id, regra, status_esperad
     assert documento.documento_id not in recuperador.consultas[0].texto
 
     # Persistência OCI simulada contém o RAG e a decisão da MESMA execução.
-    assert len(fake_oci.gravacoes) == 2
-    chave_historico, chave_resultado = fake_oci.gravacoes
+    assert len(fake_oci.gravacoes) == 3
+    chave_historico, chave_resultado, _chave_status = fake_oci.gravacoes
     assert chave_historico.startswith(f"historicos/{doc_id}/{documento.arquivo_id}/")
     assert chave_resultado.startswith(f"resultados/{doc_id}/{documento.arquivo_id}/")
     assert resultado.armazenamento_oci.chave_historico == chave_historico
@@ -152,7 +152,7 @@ def test_contextos_e_fontes_nao_se_misturam_entre_documentos():
     assert resultado_a.armazenamento_oci.chave_resultado != resultado_b.armazenamento_oci.chave_resultado
     assert resultado_a.armazenamento_oci.chave_historico != resultado_b.armazenamento_oci.chave_historico
     assert len(rag_a.consultas) == len(rag_b.consultas) == 1
-    assert len(fake_oci.gravacoes) == 4
+    assert len(fake_oci.gravacoes) == 6
     assert ResultadoTriagem.model_validate_json(
         fake_oci.objetos[resultado_a.armazenamento_oci.chave_resultado]
     ) == resultado_a

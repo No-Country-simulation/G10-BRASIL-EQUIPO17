@@ -133,7 +133,7 @@ O LangGraph usa os nós `validar_contratos`, `avaliar_regras`, `rota_R001` a `ro
 | **R003** | Solicitação de exame documentalmente completa | `auditoria_autorizacoes` | Não |
 | **R004** | Receituário documentalmente completo | `fila_farmacia_documental` | Não |
 | **R005** | Documento de rotina documentalmente completo | `prontuario_documental` | Não |
-| **R006** | Nenhuma condição anterior atendida | `auditoria_humana` | Sim |
+| **R006** | Nenhuma condição anterior atendida, inclusive **indicador de qualidade abaixo do limiar** | `auditoria_humana` | Sim |
 
 A revisão humana começa como **um estado de encaminhamento**. Nas APIs locais, a Fila de auditoria da interface registra a decisão (aprovar, corrigir ou rejeitar) em `POST /v1/triagens/{documento_id}/revisao`, sem alterar o resultado original.
 
@@ -325,9 +325,22 @@ A fonte canônica do JSON é [`src/mediflow_contracts/models.py`](src/mediflow_c
 - **`ExtracaoIA`**: categoria, dados estruturados, evidências literais e sinais documentais.
 - **`RecuperacaoRAG`**: status de consulta e referências versionadas (`fonte_id`, título, URL e trecho quando disponíveis).
 - **`ResultadoTriagem`**: entrada, classificação, integridade, evidências, fontes, decisão, armazenamento e eventos.
-- **`IndicadorQualidade`**: nesta versão, o motor mantém `metodo="nao_calculado"`, `valor=null` e `calibrado=false`. **Não existe score clínico de confiança validado**.
+- **`IndicadorQualidade`**: score de **qualidade documental da extração**, `metodo="heuristica_completude_consistencia_v0"`, `valor` entre 0 e 1 e `calibrado=false`. **Não é confiança clínica nem probabilidade calibrada.**
 
-O motor usa **precedência fixa** R001 → R006, incluindo as validações de campos V001–V004. Não cria CID, diagnósticos, doses, páginas ou porcentagens de confiança por inferência. Falhas de RAG são registradas e não alteram a decisão; falhas de extração, integridade ou persistência podem encerrar a operação com erro HTTP sanitizado.
+#### Score de qualidade e fallback para revisão humana
+
+O motor calcula o indicador em todo processamento, com pesos fixos e critérios explicados no próprio resultado (`classificacao.indicador_qualidade.criterios`):
+
+| Critério | Peso | Medida |
+|---|---|---|
+| Completude | 0,5 | campos mínimos da categoria legíveis (`rules/validacao.yaml`) |
+| Ancoragem em evidências | 0,3 | campos mínimos com trecho literal do original em `evidencias` |
+| Consistência | 0,1 | ausência de campos conflitantes |
+| Profissional identificado | 0,1 | nome do profissional presente |
+
+Categoria `outro_desconhecido` recebe 0. **Fallback:** quando o valor fica abaixo de `indicador_qualidade.limiar_revisao_humana` (padrão **0,75**, configurável em [`rules/validacao.yaml`](rules/validacao.yaml) entre 0,5 e 1,0), um documento que seria de rotina (R003–R005) é desviado para **R006 → `auditoria_humana`**, com observação na validação e evento `FALLBACK_QUALIDADE_BAIXA`. O indicador **nunca rebaixa** R001 nem substitui R002. Nos três cenários oficiais, com as fixtures, os valores são 0,85 (DOC-001), 0,90 (DOC-002) e 0,73 (DOC-005, já em R002).
+
+O motor usa **precedência fixa** R001 → R006, incluindo as validações de campos V001–V004. Não cria CID, diagnósticos, doses ou páginas por inferência, e não apresenta o indicador de qualidade como confiança clínica. Falhas de RAG são registradas e não alteram a decisão; falhas de extração, integridade ou persistência podem encerrar a operação com erro HTTP sanitizado.
 
 ### Organização dos objetos no armazenamento
 
@@ -338,8 +351,12 @@ bucket/
 ├── originais/<documento_id>/<arquivo_id>.<ext>
 ├── metadados/<documento_id>/<arquivo_id>.json
 ├── historicos/<documento_id>/<arquivo_id>/<execucao_id>.json
-└── resultados/<documento_id>/<arquivo_id>/<execucao_id>.json
+├── resultados/<documento_id>/<arquivo_id>/<execucao_id>.json
+├── processados/<destino>/<documento_id>/<arquivo_id>/<execucao_id>.json
+└── auditoria_humana/<destino>/<documento_id>/<arquivo_id>/<execucao_id>.json
 ```
+
+**Segregação por status:** `originais/` guarda os documentos **recebidos**. Depois de confirmar histórico e resultado, a persistência grava um **índice por status e destino**: `processados/` para roteamento automático (ex.: `processados/prontuario_documental/...`) e `auditoria_humana/` para tudo que exige revisão humana, inclusive a fila prioritária (ex.: `auditoria_humana/fila_prioritaria_avaliacao_humana/...`). O índice aponta para as chaves do original, do resultado e do histórico. Se a gravação do índice falhar, a persistência **não** é confirmada.
 
 O upload gera um `arquivo_id` por recebimento; a persistência gera um `execucao_id` por processamento. A escrita de histórico e resultado utiliza criação condicional, leitura de retorno e verificação de integridade. **Falha parcial não é sucesso** e pode exigir reconciliação operacional; não há limpeza destrutiva automática. Reprocessar um documento pode criar outra execução: **a API demonstrativa não oferece idempotência nem consulta pública de resultados já processados**.
 
@@ -397,7 +414,7 @@ Já concluído nesta entrega: Gemini real no fluxo HTTP dos três cenários (H15
 1. **Conectar Gemini e OCI reais no mesmo fluxo HTTP autorizado**, preservando a lógica R001–R006, o contrato JSON e os controles de falha; o H09 comprova apenas o armazenamento isolado.
 2. **Reproduzir na OCI e no Gemini reais as falhas já testadas com fakes** (H10 e H12): falha parcial entre gravações, indisponibilidade e resposta inválida do serviço externo.
 3. **Coletar custo, latência por etapa e consumo de tokens** do Gemini real, que não foram registrados no H15.
-4. **Definir avaliação de qualidade mensurável**, sem inventar score ou declarar confiança calibrada antes da validação.
+4. **Calibrar o indicador de qualidade** (hoje heurística v0 com pesos fixos) contra um conjunto rotulado maior, antes de tratá-lo como métrica de desempenho.
 5. **Completar os controles para um ambiente compartilhado ou público** — autenticação do revisor, autorização, retenção, idempotência, observabilidade, revisão de segurança e verificação dos limites Always Free — antes de considerar qualquer deploy.
 6. **Habilitar o processamento de texto colado**, hoje recusado pelas APIs (a interface já oferece a aba).
 
