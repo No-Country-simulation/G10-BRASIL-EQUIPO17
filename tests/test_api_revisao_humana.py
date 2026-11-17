@@ -1,0 +1,168 @@
+"""Consulta de triagens e revisao humana na demonstracao local (fixture + FakeOCI)."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from mediflow.api.app import app as app_principal
+from mediflow.api.app_demo_local import app, cliente_fakeoci
+from mediflow_contracts.models import ResultadoTriagem
+
+RAIZ = Path(__file__).resolve().parents[1]
+ARQUIVOS = {
+    "DOC-001": ("amostras/pdf/DOC-001_laudo_laboratorial_rotina.pdf", "application/pdf"),
+    "DOC-002": ("amostras/pdf/DOC-002_laudo_imagem_alerta.pdf", "application/pdf"),
+    "DOC-005": ("amostras/imagens/DOC-005_receita_ilegivel.png", "image/png"),
+}
+
+
+@pytest.fixture
+def cliente(monkeypatch):
+    monkeypatch.setenv("MEDIFLOW_ENV", "development")
+    monkeypatch.setenv("MEDIFLOW_ENABLE_LOCAL_UPLOADS", "true")
+    monkeypatch.setenv("MEDIFLOW_ENABLE_LOCAL_TRIAGE", "true")
+    monkeypatch.setenv("MEDIFLOW_ENABLE_LOCAL_DEMO", "true")
+    cliente_fakeoci.objetos.clear()
+    cliente_fakeoci.falhar_prefixo = None
+    with TestClient(app) as c:
+        yield c
+    cliente_fakeoci.objetos.clear()
+    cliente_fakeoci.falhar_prefixo = None
+
+
+def processar(c, doc_id):
+    relativo, mime = ARQUIVOS[doc_id]
+    arquivo = RAIZ / relativo
+    r = c.post(
+        "/v1/triagens/arquivos",
+        data={"documento_id": doc_id, "canal_origem": "demo_local"},
+        files={"arquivo": (arquivo.name, arquivo.read_bytes(), mime)},
+    )
+    assert r.status_code == 201, r.text
+    recibo = r.json()
+    r = c.post(f"/v1/triagens/arquivos/{doc_id}/{recibo['arquivo_id']}/processar")
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def revisar(c, doc_id, **payload):
+    corpo = {"acao": "aprovar", "revisor": "Auditora Sintetica", **payload}
+    return c.post(f"/v1/triagens/{doc_id}/revisao", json=corpo)
+
+
+def test_listagem_vazia(cliente):
+    r = cliente.get("/v1/triagens")
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_lista_e_filtra_triagens_processadas(cliente):
+    for doc_id in ARQUIVOS:
+        processar(cliente, doc_id)
+
+    todos = cliente.get("/v1/triagens").json()
+    assert [d["documento_id"] for d in todos] == ["DOC-001", "DOC-002", "DOC-005"]
+    for d in todos:
+        assert d["revisao_humana"] is None
+        assert d["recebido_em"]
+        ResultadoTriagem.model_validate({k: v for k, v in d.items() if k not in {"revisao_humana", "recebido_em"}})
+
+    fila = cliente.get("/v1/triagens", params={"status": "aguardando_auditoria"}).json()
+    assert {d["documento_id"] for d in fila} == {"DOC-002", "DOC-005"}
+
+    assert cliente.get("/v1/triagens", params={"status": "invalido"}).status_code == 422
+
+
+def test_consulta_documento(cliente):
+    processar(cliente, "DOC-005")
+    r = cliente.get("/v1/triagens/DOC-005")
+    assert r.status_code == 200
+    assert r.json()["decisao_roteamento"]["regra_principal"] == "R002"
+    assert cliente.get("/v1/triagens/DOC-999").status_code == 404
+    assert cliente.get("/v1/triagens/..%2Foriginais").status_code in {404, 422}
+
+
+def test_aprovacao_registrada_sem_alterar_resultado(cliente):
+    resultado = processar(cliente, "DOC-005")
+    chave_resultado = resultado["armazenamento_oci"]["chave_resultado"]
+    original = cliente_fakeoci.objetos[chave_resultado]
+
+    r = revisar(cliente, "DOC-005", comentario="  conferido  ")
+    assert r.status_code == 201, r.text
+    revisao = r.json()["revisao_humana"]
+    assert revisao["acao"] == "aprovar"
+    assert revisao["revisor"] == "Auditora Sintetica"
+    assert revisao["comentario"] == "conferido"
+    assert revisao["chave_resultado"] == chave_resultado
+    assert revisao["revisado_em"].endswith("Z")
+
+    assert cliente_fakeoci.objetos[chave_resultado] == original
+    chaves = [c for c in cliente_fakeoci.objetos if c.startswith("revisoes/DOC-005/")]
+    assert len(chaves) == 1
+    assert json.loads(cliente_fakeoci.objetos[chaves[0]])["revisao_id"] == revisao["revisao_id"]
+
+    assert cliente.get("/v1/triagens/DOC-005").json()["revisao_humana"]["revisao_id"] == revisao["revisao_id"]
+
+
+def test_ultima_revisao_prevalece(cliente):
+    processar(cliente, "DOC-002")
+    revisar(cliente, "DOC-002")
+    correcao = {"decisao_roteamento": {"destino_principal": "auditoria_humana"}}
+    r = revisar(cliente, "DOC-002", acao="corrigir", correcoes=correcao)
+    assert r.status_code == 201, r.text
+
+    atual = cliente.get("/v1/triagens/DOC-002").json()
+    assert atual["revisao_humana"]["acao"] == "corrigir"
+    assert atual["revisao_humana"]["correcoes"] == correcao
+    assert atual["decisao_roteamento"]["destino_principal"] == "fila_prioritaria_avaliacao_humana"
+    assert len([c for c in cliente_fakeoci.objetos if c.startswith("revisoes/DOC-002/")]) == 2
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"acao": "rejeitar"},
+        {"acao": "corrigir"},
+        {"acao": "aprovar", "correcoes": {"classificacao": {"tipo_documento": "receita"}}},
+        {"acao": "corrigir", "correcoes": {"armazenamento_oci": {"status": "confirmado"}}},
+        {"acao": "apagar"},
+        {"revisor": "   "},
+        {"campo_extra": True},
+    ],
+)
+def test_revisao_invalida_rejeitada(cliente, payload):
+    processar(cliente, "DOC-005")
+    assert revisar(cliente, "DOC-005", **payload).status_code == 422
+    assert not [c for c in cliente_fakeoci.objetos if c.startswith("revisoes/")]
+
+
+def test_revisao_exige_documento_processado_e_pendente(cliente):
+    assert revisar(cliente, "DOC-005").status_code == 404
+    processar(cliente, "DOC-001")
+    r = revisar(cliente, "DOC-001")
+    assert r.status_code == 409
+    assert r.json()["detail"]["codigo"] == "REVISAO_NAO_REQUERIDA"
+
+
+def test_falha_de_armazenamento_nao_vaza_detalhes(cliente):
+    processar(cliente, "DOC-005")
+    cliente_fakeoci.falhar_prefixo = "revisoes/"
+    r = revisar(cliente, "DOC-005")
+    assert r.status_code == 502
+    assert r.json()["detail"]["codigo"] == "REVISAO_NAO_PERSISTIDA"
+    assert "FAKEOCI" not in r.text
+
+
+def test_rotas_bloqueadas_sem_flags(cliente, monkeypatch):
+    monkeypatch.setenv("MEDIFLOW_ENABLE_LOCAL_TRIAGE", "false")
+    assert cliente.get("/v1/triagens").status_code == 403
+    assert revisar(cliente, "DOC-005").status_code == 403
+
+
+def test_api_principal_nao_expoe_revisao():
+    with TestClient(app_principal) as c:
+        assert c.get("/v1/triagens").status_code in {404, 405}
+        assert c.post("/v1/triagens/DOC-005/revisao", json={}).status_code in {404, 405}

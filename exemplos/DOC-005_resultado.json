@@ -27,8 +27,8 @@
       "idade": null
     },
     "profissional": {
-      "nome": null,
-      "crm_texto": null
+      "nome": "Dr. André Lima Exemplo",
+      "crm_texto": "CRM-XX 000005"
     },
     "exame": {
       "nome": null,
@@ -46,7 +46,7 @@
     "procedimentos": [],
     "identificacao_guia": null,
     "cid_documentado": null,
-    "data_emissao": null,
+    "data_emissao": "2026-10-20",
     "data_solicitacao": null,
     "data_admissao": null,
     "data_alta": null,
@@ -73,6 +73,24 @@
     {
       "campo": "medicamentos[0].nome",
       "trecho_documento": "Medicamento Alfa (fictício)",
+      "pagina": 1,
+      "origem": "documento"
+    },
+    {
+      "campo": "profissional.nome",
+      "trecho_documento": "Dr. André Lima Exemplo",
+      "pagina": 1,
+      "origem": "documento"
+    },
+    {
+      "campo": "profissional.crm_texto",
+      "trecho_documento": "CRM-XX 000005",
+      "pagina": 1,
+      "origem": "documento"
+    },
+    {
+      "campo": "data_emissao",
+      "trecho_documento": "20/10/2026",
       "pagina": 1,
       "origem": "documento"
     }

@@ -26,10 +26,30 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: pyproject.toml
+      - name: Instalar Tesseract OCR
+        run: |
+          for tentativa in 1 2 3; do
+            echo "Tentativa ${tentativa}/3: instalando Tesseract OCR..."
+
+            if sudo apt-get update -o Acquire::Retries=3 && \
+               sudo apt-get install -y tesseract-ocr tesseract-ocr-por; then
+              break
+            fi
+
+            if [ "$tentativa" -eq 3 ]; then
+              echo "Falha ao instalar Tesseract OCR após 3 tentativas."
+              exit 1
+            fi
+
+            sleep 15
+          done
+
+          tesseract --version
+          tesseract --list-langs
       - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e '.[dev]'
+          python -m pip install -e '.[dev,ai]'
       - name: Conferir sintaxe
         run: python -m compileall -q src scripts tests
       - name: Executar testes

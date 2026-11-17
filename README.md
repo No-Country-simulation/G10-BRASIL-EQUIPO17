@@ -1,94 +1,417 @@
-# MediFlow — Triagem documental com IA (Hackathon ONE G10)
+# MediFlow
 
-**Equipe:** 6 integrantes · **Plano:** 5 semanas · **Contrato atual:** `v0.1`.
+### Agente de triagem e roteamento documental assistido por IA
 
-O MediFlow é um protótipo educacional de classificação, extração e roteamento de documentos clínicos **sintéticos**. **Não** oferece diagnóstico, prescrição ou decisão médica. **Não está pronto para uso com dados reais.**
+**Hackathon ONE — Grupo 10 · Equipe 17**
 
-## Situação do código
+**Stack:** Python · FastAPI · Pydantic · PyMuPDF · Tesseract OCR · Google Gemini · RAG local · LangGraph · Oracle Cloud Infrastructure (OCI)
 
-- **Disponível:** estrutura Python, API FastAPI (`GET /health`), validação de entrada JSON no `POST /v1/triagens/texto`, contratos Pydantic/JSON Schema, motor inicial de regras R001–R006, testes e CI no GitHub.
-- **Ainda não integrado:** ingestão real de PDF/imagem, processamento por LLM, RAG, grafo LangGraph, Oracle Object Storage, autenticação, interface Streamlit e hospedagem remota.
-- Uma entrada válida na rota de triagem retorna **HTTP 501 intencionalmente**; uma entrada inválida retorna **422**. O endpoint `/health` não comprova disponibilidade de IA ou OCI.
+O **MediFlow** é um protótipo educacional para receber documentos de saúde **sintéticos**, extrair informações estruturadas, identificar inconsistências documentais e encaminhar cada arquivo a uma **fila administrativa simulada**. O projeto combina OCR e extração por IA com regras determinísticas, um grafo condicional, recuperação de referências e persistência auditável.
 
-## Repositório compartilhado
+> [!IMPORTANT]
+> **Não é um sistema clínico.** O MediFlow não diagnostica, prescreve, define condutas, autoriza procedimentos nem dispensa medicamentos. Os dados e documentos de demonstração são fictícios. **Não utilize dados reais de pacientes, não exponha os serviços à internet e não interprete alertas documentais como avaliação médica.**
 
-**GitHub:** https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17
+**Estado verificado na branch `develop`:** a demonstração HTTP local processa os três cenários oficiais, com **extração por fixtures** e **FakeOCI em memória**, enquanto RAG, confirmação independente, regras e LangGraph são executados localmente. O fluxo HTTP completo também foi homologado com o **Gemini real** nos três cenários (H15), ainda com FakeOCI. A interface Streamlit opera envio, resultado e revisão humana sobre as APIs locais. A persistência Oracle real foi homologada **isoladamente** (H09); **o fluxo completo com Gemini e OCI reais juntos não foi executado** e permanece como limitação desta entrega.
 
-- `main`: versão estável para demonstrações;
-- `develop`: integração de mudanças aprovadas;
-- `feat/`, `fix/`, `docs/`, `test/`, `refactor/`, `chore/`: branches temporárias, nomeadas pelo trabalho e **não** pelo dia, data ou nome do integrante.
+## Índice
 
-Veja **[CONTRIBUTING.md](CONTRIBUTING.md)** antes de começar uma alteração.
+- [Visão geral e estado do MVP](#visão-geral-e-estado-do-mvp)
+- [Arquitetura](#arquitetura)
+- [Fluxo de decisão do agente](#fluxo-de-decisão-do-agente)
+- [Cenários de demonstração](#cenários-de-demonstração)
+- [Tecnologias e organização do projeto](#tecnologias-e-organização-do-projeto)
+- [Instalação](#instalação)
+- [Executar a demonstração local](#executar-a-demonstração-local)
+- [Modos de API e endpoints](#modos-de-api-e-endpoints)
+- [Contratos, regras e persistência](#contratos-regras-e-persistência)
+- [Testes e evidências](#testes-e-evidências)
+- [Segurança e limitações](#segurança-e-limitações)
+- [Próximas etapas](#próximas-etapas)
+- [Documentação e colaboração](#documentação-e-colaboração)
 
-## Instalação local (Windows / PowerShell)
+## Visão geral e estado do MVP
 
-Pré-requisitos: Git e Python 3.12. Não há dependência de um computador central ligado.
+| Capacidade | Estado comprovado na `develop` |
+|---|---|
+| Recepção de PDF, PNG e JPEG, com manifesto e SHA-256 | **Implementada**; testes HTTP e validações de integridade |
+| OCR e extração estruturada com Google Gemini | **Implementados**; testes controlados offline; **Gemini real homologado no fluxo HTTP** dos três cenários com FakeOCI (H15) |
+| Recuperação de referências (RAG) | **Implementada e executada localmente**, com fichas versionadas |
+| Confirmação de marcador de alerta no original | **Implementada** com leitura independente da resposta da IA |
+| Regras de encaminhamento R001–R006 e LangGraph | **Implementados e testados localmente** |
+| Resultado estruturado em `ResultadoTriagem v0.1` | **Implementado** com validação Pydantic |
+| Persistência de originais, manifestos, históricos e resultados | Adaptador implementado; **OCI real homologada isoladamente** no cenário H09; FakeOCI usada no fluxo demonstrativo |
+| Demonstração dos três cenários | **3/3 aprovados com simulação** (H14) e **3/3 com Gemini real + FakeOCI** (H15) |
+| Interface gráfica (Streamlit) | **Integrada às APIs locais** (visão geral, envio, resultado com regra principal e evidências, fila de auditoria) e **validada visualmente nos três cenários**, com aviso permanente de simulação; ver [`src/mediflow/ui/README.md`](src/mediflow/ui/README.md) |
+| Revisão humana operacional | **Implementada nas APIs locais** (listagem, consulta e registro de aprovar/corrigir/rejeitar, gravados na FakeOCI); sem autenticação do revisor |
+| Deploy público, autenticação e uso clínico | **Não implementados ou autorizados** |
+
+**Interpretação:** código disponível, CI verde e testes com fakes **não** equivalem a homologação de serviços externos nem a um MVP clínico em produção. O status da branch `main` pode ser anterior ao da `develop`; consulte o [histórico de integração](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pulls) antes de promover uma versão.
+
+## Arquitetura
+
+O repositório é um **monorepo Python** organizado por funcionalidades. O serviço de orquestração coordena os adaptadores; **o motor determinístico é a fonte da decisão**, enquanto o LangGraph materializa a rota escolhida. O RAG oferece referências e **não decide** encaminhamentos.
+
+```mermaid
+flowchart TB
+    CLI["Swagger / cliente HTTP<br/>Interface Streamlit"] --> API["FastAPI<br/>aplicações locais isoladas"]
+    API --> ING["Ingestão e manifesto<br/>MIME, extensão, limites e SHA-256"]
+    ING --> STORAGE["Armazenamento do original<br/>FakeOCI na demonstração"]
+    STORAGE --> ORCH["Serviço de orquestração documental"]
+    ORCH --> EXTR["Extração estruturada<br/>Fixture sintética ou OCR + Gemini"]
+    EXTR --> CONF["Confirmação independente<br/>marcadores no original"]
+    CONF --> RAG["RAG local<br/>referências documentais"]
+    RAG --> GRAPH["LangGraph + motor determinístico<br/>R001 a R006"]
+    GRAPH --> PERSIST["Persistência de resultado e histórico<br/>FakeOCI na demonstração"]
+    PERSIST --> JSON["ResultadoTriagem v0.1<br/>JSON validado por Pydantic"]
+    OCI[("OCI Object Storage real<br/>H09: homologação isolada")] -.->|Teste isolado H09| PERSIST
+```
+
+**O que é real em cada execução:**
+
+- **Demonstração local:** FastAPI, integridade, orquestração, confirmador, RAG, motor e LangGraph são implementações reais locais; extração utiliza os JSONs de referência; persistência utiliza FakeOCI **volátil em memória**.
+- **Homologação Gemini local:** mesma orquestração, com extrator Gemini **injetável** e protegido por autorização explícita; os testes automatizados usam um extrator controlado e **não fazem chamadas externas**; persistência permanece FakeOCI.
+- **Homologação OCI H09:** o SDK e o Object Storage reais gravaram e leram **quatro objetos** de um cenário sintético, usando **resultado de fixture**. Essa evidência não comprova o fluxo HTTP completo.
+
+O armazenamento confirmado no JSON da demonstração **não significa** que um objeto tenha sido enviado à Oracle Cloud.
+
+### Componentes principais
+
+| Componente técnico | Implementação |
+|---|---|
+| HTTP, ingestão e processamento | `src/mediflow/api/` |
+| Orquestração de etapas e contratos | `src/mediflow/api/triage_service.py` |
+| Extração de texto, OCR e Gemini | `src/mediflow/extraction/` |
+| Recuperação RAG e fichas locais | `src/mediflow/rag/` |
+| Validação e roteamento determinístico | `src/mediflow/rules/` e `rules/` |
+| Grafo condicional executável | `src/mediflow/agents/grafo_documental.py` |
+| Adaptadores e persistência OCI | `src/mediflow/storage/` |
+| Contratos JSON/Pydantic v0.1 | `src/mediflow_contracts/` |
+| Testes e homologação | `tests/`, `scripts/`, `docs/evidencias/` |
+
+> O grafo LangGraph implementa **o subfluxo condicional de decisão**. Extração, confirmação documental, RAG e persistência são coordenados pelo serviço Python; não há alegação de que todo o pipeline externo esteja dentro de um único grafo.
+
+## Fluxo de decisão do agente
+
+O serviço valida a entrada, executa a extração, confirma independentemente marcadores textuais do documento original, consulta referências locais e entrega os dados ao grafo. O motor lê as regras e os campos mínimos versionados em [`rules/roteamento.yaml`](rules/roteamento.yaml) e [`rules/validacao.yaml`](rules/validacao.yaml).
+
+```mermaid
+flowchart TD
+    A["Documento sintético recebido"] --> B{"Upload e integridade válidos?"}
+    B -->|Não| ERR["Erro HTTP seguro<br/>sem triagem concluída"]
+    B -->|Sim| C["Extrair dados e validar ExtracaoIA v0.1"]
+    C --> D{"Extração consistente?"}
+    D -->|Não| ERR
+    D -->|Sim| E["Confirmar alerta no original<br/>sem depender da IA"]
+    E --> F["Recuperar referências RAG<br/>falha não altera a regra"]
+    F --> G["LangGraph: validar contratos"]
+    G --> H["Motor: avaliar campos e precedência<br/>R001 > R002 > R003 > R004 > R005 > R006"]
+    H --> I{"Regra principal?"}
+    I -->|R001| R1["Marcador explícito confirmado<br/>avaliação humana prioritária"]
+    I -->|R002| R2["Ambiguidade crítica<br/>auditoria humana"]
+    I -->|R003| R3["Solicitação completa<br/>auditoria de autorizações"]
+    I -->|R004| R4["Receituário completo<br/>fila documental da farmácia"]
+    I -->|R005| R5["Documento de rotina completo<br/>prontuário documental"]
+    I -->|R006| R6["Fallback documental<br/>auditoria humana"]
+    R1 --> J["LangGraph: conferir rota e resultado"]
+    R2 --> J
+    R3 --> J
+    R4 --> J
+    R5 --> J
+    R6 --> J
+    J --> K["Persistir histórico e resultado"]
+    K --> L{"Escrita e leitura confirmadas?"}
+    L -->|Não| ERR
+    L -->|Sim| M["Responder ResultadoTriagem v0.1"]
+```
+
+O LangGraph usa os nós `validar_contratos`, `avaliar_regras`, `rota_R001` a `rota_R006` e `concluir`; a seleção da aresta é condicionada à regra principal calculada pelo motor. **R001 tem prioridade sobre R002** quando um marcador expresso é confirmado no original, preservando a ambiguidade concomitante na validação. Falhas de extração, leitura ou persistência não são tratadas como sucesso. Os destinos são **filas administrativas simuladas**, não integrações hospitalares.
+
+| Regra | Condição documental | Destino | Revisão humana |
+|---|---|---|---|
+| **R001** | Alerta expresso confirmado independentemente no original | `fila_prioritaria_avaliacao_humana` | Sim |
+| **R002** | Campo essencial ilegível, ausente ou conflitante | `auditoria_humana` | Sim |
+| **R003** | Solicitação de exame documentalmente completa | `auditoria_autorizacoes` | Não |
+| **R004** | Receituário documentalmente completo | `fila_farmacia_documental` | Não |
+| **R005** | Documento de rotina documentalmente completo | `prontuario_documental` | Não |
+| **R006** | Nenhuma condição anterior atendida | `auditoria_humana` | Sim |
+
+A revisão humana começa como **um estado de encaminhamento**. Nas APIs locais, a Fila de auditoria da interface registra a decisão (aprovar, corrigir ou rejeitar) em `POST /v1/triagens/{documento_id}/revisao`, sem alterar o resultado original.
+
+## Cenários de demonstração
+
+Os documentos oficiais de teste são **fictícios** e estão versionados em [`amostras/`](amostras/). O critério H14 executa upload e processamento HTTP pela aplicação demonstrativa, verifica os resultados e gera evidência sanitizada.
+
+| Cenário | Amostra | Regra | Destino | Status |
+|---|---|---|---|---|
+| **Rotina — DOC-001** | `amostras/pdf/DOC-001_laudo_laboratorial_rotina.pdf` | R005 | `prontuario_documental` | `processado` |
+| **Alerta — DOC-002** | `amostras/pdf/DOC-002_laudo_imagem_alerta.pdf` | R001 | `fila_prioritaria_avaliacao_humana` | `aguardando_auditoria` |
+| **Ambiguidade — DOC-005** | `amostras/imagens/DOC-005_receita_ilegivel.png` | R002 | `auditoria_humana` | `aguardando_auditoria` |
+
+O DOC-005 preserva a dose ilegível como `null`; **não há preenchimento por suposição**. O DOC-002 depende de confirmação independente do marcador no documento original. **Evidência:** [`docs/evidencias/h14_demonstracao_local.json`](docs/evidencias/h14_demonstracao_local.json) e [procedimento H14](docs/26_h14_demonstracao_local.md). O relatório registra **3/3 cenários aprovados com simulação**, não Gemini/OCI reais ou interface visual. Com o **Gemini real** no mesmo fluxo HTTP, os três cenários chegaram às mesmas regras, destinos e status (FakeOCI; OCI real não usada): ver [`docs/evidencias/h15_gemini_http_real.json`](docs/evidencias/h15_gemini_http_real.json) e o [relatório H15](docs/27_h15_homologacao_http_gemini_real.md).
+
+## Tecnologias e organização do projeto
+
+- **Python 3.12/3.13**, FastAPI, Uvicorn, Pydantic e JSON Schema para APIs e contratos.
+- **PyMuPDF, pypdf, Pillow e Tesseract OCR (`por`)** para leitura, verificação e OCR de PDFs/imagens.
+- **Google Gemini (`google-genai`)** para extração estruturada, com credencial e validação separadas.
+- **RAG local** com recuperação de fichas versionadas; não é serviço de busca clínica externa.
+- **LangGraph** para validar a decisão e seguir uma das seis rotas condicionais.
+- **Oracle Cloud Object Storage (`oci`)** para armazenamento e leitura de originais, manifestos, históricos e resultados, quando expressamente configurado.
+- **pytest e GitHub Actions** para regressão e CI em Python 3.12 e 3.13.
+
+```text
+.
+├── .github/workflows/ci.yml       # CI Python 3.12 e 3.13
+├── amostras/                       # PDFs e imagem sintéticos oficiais
+├── baseline_dia1/                  # Cenários e gabaritos de referência
+├── config/                         # Destinos administrativos simulados
+├── docs/                           # Arquitetura, critérios e homologações
+│   └── evidencias/                 # Registros técnicos sanitizados
+├── exemplos/                       # Fixtures ExtracaoIA / ResultadoTriagem
+├── rules/                          # Regras de roteamento e validação em YAML
+├── schemas/                        # JSON Schemas derivados dos modelos
+├── scripts/                        # Utilitários e homologações controladas
+├── src/
+│   ├── mediflow/
+│   │   ├── agents/                # LangGraph condicional
+│   │   ├── api/                   # FastAPI, composição e orquestração
+│   │   ├── extraction/            # OCR e adaptador Gemini
+│   │   ├── rag/                   # Recuperador e fichas de referência
+│   │   ├── rules/                 # Motor determinístico e confirmação
+│   │   ├── storage/               # OCIStorage e persistência
+│   │   └── ui/                    # Interface Streamlit (streamlit run src/mediflow/ui/app.py)
+│   └── mediflow_contracts/        # Pydantic v0.1 e contratos canônicos
+├── tests/                           # Testes de contrato, integração e falha
+├── CONTRIBUTING.md                  # Convenções de contribuição
+└── pyproject.toml                    # Pacote Python e dependências
+```
+
+## Instalação
+
+**Pré-requisitos:** Git, Python **3.12 ou 3.13**, acesso ao repositório e Tesseract OCR com idioma **português (`por`)** para os cenários que envolvem imagens. O pacote Python `pytesseract` **não instala** o executável Tesseract.
+
+### Windows — PowerShell
 
 ```powershell
 git clone https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17.git
 cd G10-BRASIL-EQUIPO17
 git switch develop
 py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e '.[dev]'
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m uvicorn mediflow.api.app:app --reload
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e ".[dev,ai]"
+tesseract --version
+tesseract --list-langs
 ```
 
-Acesse `http://127.0.0.1:8000/docs` para testar a API local.
+A saída de `tesseract --list-langs` deve incluir `por`. Se o executável não for encontrado, instale-o no Windows, habilite os dados de idioma português e acrescente a pasta de instalação ao `PATH`.
 
-### Linux / macOS
+### Linux (Ubuntu/Debian)
 
 ```bash
+sudo apt-get update
+sudo apt-get install -y tesseract-ocr tesseract-ocr-por
 git clone https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17.git
 cd G10-BRASIL-EQUIPO17
 git switch develop
 python3.12 -m venv .venv
-.venv/bin/python -m pip install -e '.[dev]'
-.venv/bin/python -m pytest -q
-.venv/bin/python -m uvicorn mediflow.api.app:app --reload
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -e '.[dev,ai]'
 ```
 
-## Mapa do projeto
+A instalação **não exige chave Gemini nem credenciais OCI** para executar a demonstração local e seus testes. O extra `cloud` (`.[dev,ai,cloud]`) é necessário apenas para operações autorizadas com a Oracle Cloud real.
 
-| Local | Responsabilidade |
-|---|---|
-| `src/mediflow/api/` | API FastAPI |
-| `src/mediflow/ingestion/` | Recebimento e preparação dos documentos (planejado) |
-| `src/mediflow/extraction/` | Extração de dados por IA (planejada) |
-| `src/mediflow/rag/` | Consulta à base de conhecimento (planejada) |
-| `src/mediflow/agents/` | Orquestração do grafo (planejada) |
-| `src/mediflow/storage/` | Integração OCI (planejada) |
-| `src/mediflow/ui/` | Interface Streamlit (planejada) |
-| `src/mediflow_contracts/` | Contratos Pydantic e motor inicial de decisões |
-| `rules/` e `schemas/` | Regras YAML e JSON Schema gerados |
-| `tests/` | Testes automatizados |
-| `amostras/` e `exemplos/` | Entradas e saídas de demonstração, exclusivamente sintéticas |
-| `docs/` e `diagramas/` | Arquitetura, decisões, fluxos e documentação histórica |
+## Executar a demonstração local
 
-**Atenção:** `schemas/` é gerado a partir dos modelos Pydantic; execute `python scripts/exportar_schemas.py` em vez de editar os schemas manualmente.
+Este é o **modo recomendado para reproduzir o MVP demonstrativo**. O processamento aceita somente **bytes e nomes idênticos** às três amostras oficiais. Não há chamada ao Gemini nem gravação OCI real.
 
-## Guia para a equipe
+### 1. Iniciar a API de demonstração
 
-- [CONTRIBUTING.md](CONTRIBUTING.md): nomes de branches, pull requests, testes e segurança.
-- [docs/06_mapa_colaboracao.md](docs/06_mapa_colaboracao.md): módulos, papéis e nomes recomendados para entregas.
-- [docs/01_arquitetura_monorepo.md](docs/01_arquitetura_monorepo.md): estrutura de software.
-- [docs/02_git_colaboracao.md](docs/02_git_colaboracao.md): atalho para o guia Git atualizado.
-- [docs/dia02/01_contrato_api.md](docs/dia02/01_contrato_api.md): contrato `v0.1`, referência técnica.
-- [docs/03_plano_dia03.md](docs/03_plano_dia03.md): registro histórico de implantação inicial.
+No PowerShell, na raiz do repositório:
 
-> Os nomes com `dia01`, `dia02` e `dia03` preservados **em artefatos históricos e testes existentes** não são exemplos para novas branches. As tags existentes também não precisam ser renomeadas.
+```powershell
+$env:MEDIFLOW_ENV = "development"
+$env:MEDIFLOW_ENABLE_LOCAL_UPLOADS = "true"
+$env:MEDIFLOW_ENABLE_LOCAL_TRIAGE = "true"
+$env:MEDIFLOW_ENABLE_LOCAL_DEMO = "true"
 
-## Próximas entregas por funcionalidade
+.\.venv\Scripts\python.exe -m uvicorn mediflow.api.app_demo_local:app --host 127.0.0.1 --port 8000
+```
 
-1. `feat/oci-object-storage`: armazenamento privado OCI com teste real de upload/recuperação.
-2. `feat/api-document-upload`: endpoint de ingestão PDF/PNG/JPEG, com validação.
-3. `feat/ai-document-extraction`: leitura, classificação e extração estruturada.
-4. `feat/rag-knowledge-retrieval`: recuperação de referências auditáveis.
-5. `feat/rules-routing-engine` e `feat/agent-langgraph-workflow`: decisões condicionais em execução.
-6. `feat/ui-document-dashboard` e `feat/ui-human-review`: interface e auditoria.
+Abra `http://127.0.0.1:8000/docs` para o Swagger e `http://127.0.0.1:8000/demo/estado` para identificar o modo. **Não utilize `--reload`, múltiplos workers, proxies, túneis ou `0.0.0.0`**: a FakeOCI é volátil e a aplicação não possui autenticação pública.
 
-Os nomes são **sugestões**, não branches já criadas. Comece a partir de `develop` e abra PR para `develop`.
+### 2. Enviar um documento
 
-## Arquitetura e fluxo do agente
+**Pela interface visual:** em outro PowerShell, na raiz do repositório, rode
+`.\.venv\Scripts\python.exe -m streamlit run src/mediflow/ui/app.py` (requer `pip install -e '.[ui]'`)
+e envie um arquivo de `amostras/` na página **Enviar documento**. Detalhes em [`src/mediflow/ui/README.md`](src/mediflow/ui/README.md).
 
-![Fluxo de triagem do MediFlow](diagramas/grafo_mediflow_v0.1.png)
+**Pela linha de comando:** em **outro PowerShell**, posicionado na raiz do repositório:
+
+```powershell
+$recibo = curl.exe -sS -X POST "http://127.0.0.1:8000/v1/triagens/arquivos" `
+  -F "documento_id=DOC-001" `
+  -F "canal_origem=demo_local" `
+  -F "arquivo=@amostras/pdf/DOC-001_laudo_laboratorial_rotina.pdf;type=application/pdf" |
+  ConvertFrom-Json
+
+$recibo.arquivo_id
+```
+
+Resposta esperada do upload: **HTTP 201**, com `arquivo_id` gerado e `triagem_executada=false` no recibo. O upload **ainda não processa** o documento.
+
+### 3. Executar a triagem e consultar a decisão
+
+```powershell
+$resultado = Invoke-RestMethod -Method Post `
+  -Uri "http://127.0.0.1:8000/v1/triagens/arquivos/DOC-001/$($recibo.arquivo_id)/processar"
+
+$resultado.decisao_roteamento.regra_principal
+$resultado.decisao_roteamento.destino_principal
+$resultado.status
+```
+
+Para DOC-001, o esperado é **`R005`**, **`prontuario_documental`** e **`processado`**. Para inspecionar o contrato inteiro:
+
+```powershell
+$resultado | ConvertTo-Json -Depth 16
+```
+
+A estrutura inclui `classificacao`, `dados_extraidos`, `validacao`, `evidencias`, `rag`, `decisao_roteamento`, `armazenamento_oci` e `eventos`. O campo `armazenamento_oci.status="confirmado"` representa **apenas a FakeOCI neste modo**.
+
+### 4. Executar os três cenários e gerar a evidência H14
+
+Não é necessário iniciar o Uvicorn; o script usa `TestClient` internamente:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q tests/test_h14_demonstracao_local.py -rx
+.\.venv\Scripts\python.exe scripts/homologar_h14_demo_local.py
+```
+
+O script registra **3/3 cenários** e gera `docs/evidencias/h14_demonstracao_local.json` após aprovação. **Atenção:** a execução pode substituir esse arquivo versionado; confira o diff antes de fazer commit. O registro já existente documenta uma execução local controlada com simulação.
+
+## Modos de API e endpoints
+
+O projeto contém **três aplicações FastAPI distintas**. Elas não são intercambiáveis e não devem ser publicadas sem autenticação/autorização.
+
+| Aplicação | Inicialização | O que faz | Limitação |
+|---|---|---|---|
+| **API de desenvolvimento** | `mediflow.api.app:app` | Saúde, upload/consulta em OCI configurada, preview e rota isolada de extração Gemini | **Não** registra `/processar`; `POST /v1/triagens/texto` responde 501 |
+| **Demonstração local** | `mediflow.api.app_demo_local:app` | Upload + processamento dos três arquivos oficiais; RAG/regras/LangGraph reais locais | Extração por fixtures; FakeOCI em memória |
+| **Homologação Gemini local** | `mediflow.api.app_gemini_local:app` | Composição HTTP com extrator Gemini injetável | Gemini real bloqueado por padrão; FakeOCI; somente amostras oficiais |
+
+**Endpoints da demonstração (`app_demo_local`)**:
+
+| Método | Rota | Função |
+|---|---|---|
+| `GET` | `/demo/estado` | Identifica componentes reais e simulados |
+| `POST` | `/v1/triagens/arquivos` | Recebe arquivo em `multipart/form-data` (`documento_id`, `canal_origem`, `arquivo`) |
+| `GET` | `/v1/triagens/arquivos/{documento_id}/{arquivo_id}` | Consulta o recibo de upload, **não** o resultado de triagem |
+| `GET` | `/v1/triagens/arquivos/{documento_id}` | Lista arquivos com paginação (`limite`, `cursor`) |
+| `POST` | `/v1/triagens/arquivos/{documento_id}/{arquivo_id}/processar` | Devolve `ResultadoTriagem v0.1` |
+| `GET` | `/v1/triagens?status=` | Lista as triagens persistidas (filtro opcional por status do contrato) |
+| `GET` | `/v1/triagens/{documento_id}` | Consulta o último resultado, com `recebido_em` e `revisao_humana` |
+| `POST` | `/v1/triagens/{documento_id}/revisao` | Registra `aprovar`, `corrigir` ou `rejeitar`; o resultado original não é alterado |
+
+As três últimas rotas (revisão humana) também existem na homologação Gemini local e **não** são registradas na API de desenvolvimento.
+
+**Outras rotas:** na API de desenvolvimento, `GET /health` comprova apenas disponibilidade HTTP, `POST /v1/triagens/texto` continua intencionalmente não implementado (**501**) e `POST /v1/triagens/arquivos/{documento_id}/{arquivo_id}/extracao` usa o adaptador Gemini quando há OCI e credenciais configuradas. Na aplicação de homologação Gemini, `GET /gemini/estado` indica configuração/autorização, **não** sucesso da API externa; sem consentimento explícito, `/processar` retorna **503 `GEMINI_REAL_NAO_AUTORIZADO`**. Veja [documentação do modo controlado](docs/25_homologacao_gemini_local_fakeoci.md).
+
+**Limites atuais do upload:** PDF/PNG/JPEG, até **10 MiB** e PDFs com até **10 páginas**, incluindo verificações de extensão, MIME, assinatura e estrutura. Não há ingestão completa de textos/JSONs arbitrários na rota de processamento atual.
+
+## Contratos, regras e persistência
+
+A fonte canônica do JSON é [`src/mediflow_contracts/models.py`](src/mediflow_contracts/models.py). Os arquivos de [`schemas/`](schemas/) derivam dos modelos Pydantic; atualize-os por [`scripts/exportar_schemas.py`](scripts/exportar_schemas.py), não manualmente.
+
+- **`ExtracaoIA`**: categoria, dados estruturados, evidências literais e sinais documentais.
+- **`RecuperacaoRAG`**: status de consulta e referências versionadas (`fonte_id`, título, URL e trecho quando disponíveis).
+- **`ResultadoTriagem`**: entrada, classificação, integridade, evidências, fontes, decisão, armazenamento e eventos.
+- **`IndicadorQualidade`**: nesta versão, o motor mantém `metodo="nao_calculado"`, `valor=null` e `calibrado=false`. **Não existe score clínico de confiança validado**.
+
+O motor usa **precedência fixa** R001 → R006, incluindo as validações de campos V001–V004. Não cria CID, diagnósticos, doses, páginas ou porcentagens de confiança por inferência. Falhas de RAG são registradas e não alteram a decisão; falhas de extração, integridade ou persistência podem encerrar a operação com erro HTTP sanitizado.
+
+### Organização dos objetos no armazenamento
+
+O adaptador utiliza chaves no formato:
+
+```text
+bucket/
+├── originais/<documento_id>/<arquivo_id>.<ext>
+├── metadados/<documento_id>/<arquivo_id>.json
+├── historicos/<documento_id>/<arquivo_id>/<execucao_id>.json
+└── resultados/<documento_id>/<arquivo_id>/<execucao_id>.json
+```
+
+O upload gera um `arquivo_id` por recebimento; a persistência gera um `execucao_id` por processamento. A escrita de histórico e resultado utiliza criação condicional, leitura de retorno e verificação de integridade. **Falha parcial não é sucesso** e pode exigir reconciliação operacional; não há limpeza destrutiva automática. Reprocessar um documento pode criar outra execução: **a API demonstrativa não oferece idempotência nem consulta pública de resultados já processados**.
+
+O critério **H09** documenta uma execução **real controlada** no Object Storage em 08/11/2026, com quatro objetos associados ao DOC-001 sintético e decisão proveniente de fixture. Consulte [evidência H09](docs/17_homologacao_h09_persistencia_oci_real.md). O script [`scripts/homologar_h09_oci_real.py`](scripts/homologar_h09_oci_real.py) possui um **modo de planejamento sem gravação**; executar com `--execute` escreve novos objetos reais e exige autorização explícita, validação de credenciais e avaliação dos limites/custos OCI.
+
+## Testes e evidências
+
+A suíte automatizada cobre contratos, integridade, roteamento, RAG, LangGraph, HTTP, persistência e falhas parciais. A CI em [`.github/workflows/ci.yml`](.github/workflows/ci.yml) executa testes em **Python 3.12 e 3.13** com o Tesseract disponível.
+
+**Windows / PowerShell:**
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q tests/test_http_demo_local.py tests/test_h14_demonstracao_local.py -rx
+.\.venv\Scripts\python.exe -m pytest -q -k "not fluxo_api_com_gemini_real"
+.\.venv\Scripts\python.exe -m compileall -q src scripts tests
+git diff --check
+```
+
+**Linux / macOS:**
+
+```bash
+.venv/bin/python -m pytest -q tests/test_http_demo_local.py tests/test_h14_demonstracao_local.py -rx
+.venv/bin/python -m pytest -q -k 'not fluxo_api_com_gemini_real'
+.venv/bin/python -m compileall -q src scripts tests
+git diff --check
+```
+
+**Última referência de validação local para esta entrega (17/11/2026, `develop` em `3968418`):** **483 testes aprovados, 3 desmarcados intencionalmente** (`-k "not fluxo_api_com_gemini_real"`), sem falhas de compilação; inclui os testes de revisão humana ([`tests/test_api_revisao_humana.py`](tests/test_api_revisao_humana.py)). As contagens são históricas e podem mudar com novos commits. A CI executa seu próprio `pytest -q`; sem credenciais, os testes externos são omitidos ou ignorados conforme a configuração do teste.
+
+**Documentos de evidência:**
+
+- [Critérios de homologação H01–H14](docs/16_criterios_homologacao_mvp.md)
+- [H09 — persistência OCI real isolada](docs/17_homologacao_h09_persistencia_oci_real.md)
+- [H10 — falhas parciais com FakeOCI](docs/18_homologacao_h10_falhas_parciais_i1.md)
+- [H11 — controles de processamento local](docs/19_h11_controles_processamento_local_i1.md)
+- [H12 — tratamento seguro de erros](docs/20_h12_tratamento_seguro_erros_api_i1.md)
+- [H14 — demonstração técnica dos três cenários](docs/26_h14_demonstracao_local.md)
+- [H15 — fluxo HTTP com Gemini real e FakeOCI](docs/27_h15_homologacao_http_gemini_real.md)
+
+## Segurança e limitações
+
+- **Somente documentos sintéticos:** nunca submeter prontuários, documentos pessoais ou outros dados reais de pacientes.
+- **Somente localhost:** flags de desenvolvimento e restrição a `127.0.0.1` **não substituem autenticação/autorização**. Não publicar por domínio, proxy, túnel, container exposto ou rede interna sem controles adicionais.
+- **Credenciais:** não versionar `.env`, `GEMINI_API_KEY`, `~/.oci/config`, PEM, tokens, OCIDs sensíveis ou logs com segredos. Usar identidades OCI individuais e menor privilégio.
+- **Uso de serviços externos:** chamadas Gemini e gravações OCI só devem ocorrer em ambiente controlado, com autorização explícita e análise de quota, custo, retenção e elegibilidade Always Free. Os testes offline não consomem esses serviços.
+- **Inferência e confiança:** não gerar ou exibir precisão clínica calibrada inexistente; preservar valores ausentes ou ilegíveis e evidências verificáveis.
+- **Revisão humana:** a decisão do auditor é registrada nas APIs locais, mas o nome do revisor é declarativo (sem autenticação) e não há notificações em tempo real. Não é um workflow de aprovação clínica.
+- **Persistência demonstrativa:** FakeOCI é reiniciada a cada processo; múltiplos workers e recarregamento automático podem perder ou dividir os dados.
+- **Integridade e falhas:** há verificações de hash, associação documento/arquivo e erros sanitizados; isso não substitui auditoria de segurança, antivírus, monitoramento operacional, retenção, autorização e política de dados.
+
+## Próximas etapas
+
+Já concluído nesta entrega: Gemini real no fluxo HTTP dos três cenários (H15), interface Streamlit validada visualmente e revisão humana registrada nas APIs locais. As lacunas que permanecem são:
+
+1. **Conectar Gemini e OCI reais no mesmo fluxo HTTP autorizado**, preservando a lógica R001–R006, o contrato JSON e os controles de falha; o H09 comprova apenas o armazenamento isolado.
+2. **Reproduzir na OCI e no Gemini reais as falhas já testadas com fakes** (H10 e H12): falha parcial entre gravações, indisponibilidade e resposta inválida do serviço externo.
+3. **Coletar custo, latência por etapa e consumo de tokens** do Gemini real, que não foram registrados no H15.
+4. **Definir avaliação de qualidade mensurável**, sem inventar score ou declarar confiança calibrada antes da validação.
+5. **Completar os controles para um ambiente compartilhado ou público** — autenticação do revisor, autorização, retenção, idempotência, observabilidade, revisão de segurança e verificação dos limites Always Free — antes de considerar qualquer deploy.
+6. **Habilitar o processamento de texto colado**, hoje recusado pelas APIs (a interface já oferece a aba).
+
+## Documentação e colaboração
+
+- [Desafio e critérios de aceite do MVP](docs/16_criterios_homologacao_mvp.md)
+- [API demonstrativa local](docs/24_endpoint_http_demo_local.md)
+- [Homologação Gemini controlada](docs/25_homologacao_gemini_local_fakeoci.md)
+- [Demonstração H14 e checklist de interface](docs/26_h14_demonstracao_local.md)
+- [Guia de contribuição](CONTRIBUTING.md)
+- [Histórico de alterações e pull requests](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pulls)
+
+**Contribuição:** crie branches por funcionalidade a partir de `develop`, inclua testes e documentação, execute `pytest`, `compileall` e `git diff --check` e abra um pull request para revisão. Arquivos e documentos históricos podem conservar nomes antigos; as **responsabilidades técnicas** deste README são identificadas por componentes e caminhos de código, nunca por identificadores pessoais.
+
+---
+
+**MediFlow — Hackathon ONE G10.** Protótipo educacional de automação documental com roteamento rastreável, evidências estruturadas e revisão humana em casos prioritários ou ambíguos.

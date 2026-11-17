@@ -1,0 +1,73 @@
+{
+  "criterio": "H14",
+  "status_h14": "aprovado_com_simulacao",
+  "execucao_id": "e2a669524ad24afeb5e6074c33541ec6",
+  "timestamp_utc": "2026-11-12T23:47:38.864794Z",
+  "timestamp_brt": "2026-11-12T20:47:38.864794-03:00",
+  "git_commit_base": "b178477cf5f150c510460d4827ff413c6aa52a3a",
+  "ambiente": "local_testclient_sem_rede",
+  "componentes": {
+    "api": "fastapi_real_local",
+    "extracao": "fixtures_sinteticas_nao_gemini",
+    "rag": "recuperador_local_real",
+    "regras_langgraph": "implementacoes_locais_reais",
+    "persistencia": "fakeoci_volatil_em_memoria",
+    "gemini_real": false,
+    "oci_real": false,
+    "streamlit_executado": false
+  },
+  "cenarios": [
+    {
+      "teste_id": "H14-DOC-001",
+      "documento_id": "DOC-001",
+      "status_h14": "aprovado_com_simulacao",
+      "http_upload": 201,
+      "http_processamento": 200,
+      "sha256_amostra_sintetica": "95b0340eb0e78f588d25ed41fd0e66e83bcd9eccf9c19fc64a76ab525f46e6e7",
+      "categoria": "laudo_laboratorial",
+      "regra": "R005",
+      "destino": "prontuario_documental",
+      "revisao_humana": false,
+      "status_resultado": "processado",
+      "rag_status": "consultado",
+      "numero_fontes_rag": 3,
+      "numero_evidencias_documentais": 3,
+      "persistencia": "fakeoci_memoria_verificada"
+    },
+    {
+      "teste_id": "H14-DOC-002",
+      "documento_id": "DOC-002",
+      "status_h14": "aprovado_com_simulacao",
+      "http_upload": 201,
+      "http_processamento": 200,
+      "sha256_amostra_sintetica": "1d75a3f0d8987fb6f3afb338ff6956644616a6090e90a7f98bbd4e602ebc3490",
+      "categoria": "laudo_imagem",
+      "regra": "R001",
+      "destino": "fila_prioritaria_avaliacao_humana",
+      "revisao_humana": true,
+      "status_resultado": "aguardando_auditoria",
+      "rag_status": "consultado",
+      "numero_fontes_rag": 3,
+      "numero_evidencias_documentais": 3,
+      "persistencia": "fakeoci_memoria_verificada"
+    },
+    {
+      "teste_id": "H14-DOC-005",
+      "documento_id": "DOC-005",
+      "status_h14": "aprovado_com_simulacao",
+      "http_upload": 201,
+      "http_processamento": 200,
+      "sha256_amostra_sintetica": "a92259058e5ded90b08568f7410fe59d0f463c5bd415801301fa8c9696042b10",
+      "categoria": "receituario",
+      "regra": "R002",
+      "destino": "auditoria_humana",
+      "revisao_humana": true,
+      "status_resultado": "aguardando_auditoria",
+      "rag_status": "consultado",
+      "numero_fontes_rag": 3,
+      "numero_evidencias_documentais": 5,
+      "persistencia": "fakeoci_memoria_verificada"
+    }
+  ],
+  "limitacao": "Evidencia H14 tecnica local: nao homologa Gemini real, OCI real, Streamlit nem uso clinico. Chaves e conteudo integral nao sao registrados."
+}
