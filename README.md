@@ -11,7 +11,7 @@ O **MediFlow** é um protótipo educacional para receber documentos de saúde **
 > [!IMPORTANT]
 > **Não é um sistema clínico.** O MediFlow não diagnostica, prescreve, define condutas, autoriza procedimentos nem dispensa medicamentos. Os dados e documentos de demonstração são fictícios. **Não utilize dados reais de pacientes, não exponha os serviços à internet e não interprete alertas documentais como avaliação médica.**
 
-**Estado verificado na branch `develop`:** a demonstração HTTP local processa os três cenários oficiais, com **extração por fixtures** e **FakeOCI em memória**, enquanto RAG, confirmação independente, regras e LangGraph são executados localmente. O fluxo HTTP completo também foi homologado com o **Gemini real** nos três cenários (H15), ainda com FakeOCI. A interface Streamlit opera envio, resultado e revisão humana sobre as APIs locais. A persistência Oracle real foi homologada **isoladamente** (H09); **o fluxo completo com Gemini e OCI reais juntos não foi executado** e permanece como limitação desta entrega.
+**Estado verificado na branch `main` (`b303b96`, PR #12):** a demonstração HTTP local processa os três cenários oficiais, com **extração por fixtures** e **FakeOCI em memória**, enquanto RAG, confirmação independente, regras e LangGraph são executados localmente. O fluxo HTTP completo também foi homologado com o **Gemini real** nos três cenários (H15), ainda com FakeOCI. A interface Streamlit opera envio, resultado e revisão humana sobre as APIs locais. A persistência Oracle real foi homologada **isoladamente** (H09); **o fluxo completo com Gemini e OCI reais juntos não foi executado** e permanece como limitação desta entrega.
 
 ## Índice
 
@@ -367,7 +367,7 @@ git diff --check
 git diff --check
 ```
 
-**Última referência de validação local para esta entrega (17/11/2026, `develop` em `3968418`):** **483 testes aprovados, 3 desmarcados intencionalmente** (`-k "not fluxo_api_com_gemini_real"`), sem falhas de compilação; inclui os testes de revisão humana ([`tests/test_api_revisao_humana.py`](tests/test_api_revisao_humana.py)). As contagens são históricas e podem mudar com novos commits. A CI executa seu próprio `pytest -q`; sem credenciais, os testes externos são omitidos ou ignorados conforme a configuração do teste.
+**Última referência de validação para esta entrega (17/11/2026, `main` em `b303b96`, mesmo conteúdo de `develop` em `97517b9`):** **483 testes aprovados localmente, 3 desmarcados intencionalmente** (`-k "not fluxo_api_com_gemini_real"`), sem falhas de compilação, e **CI MediFlow verde em Python 3.12 e 3.13** no push para `main`; inclui os testes de revisão humana ([`tests/test_api_revisao_humana.py`](tests/test_api_revisao_humana.py)). As contagens são históricas e podem mudar com novos commits. A CI executa seu próprio `pytest -q`; sem credenciais, os testes externos são omitidos ou ignorados conforme a configuração do teste.
 
 **Documentos de evidência:**
 

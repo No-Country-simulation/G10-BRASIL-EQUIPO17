@@ -2,7 +2,7 @@
 
 **Escopo:** protótipo educacional de triagem **documental e administrativa** com arquivos exclusivamente sintéticos. Não é sistema clínico, não realiza diagnóstico, prescrição ou decisão médica. **Situação inicial:** critérios definidos; homologação completa ainda não executada.
 
-> **Situação em 17/11/2026 (`develop` em `3968418`):** três cenários aprovados com simulação (H14) e com Gemini real + FakeOCI (H15); interface Streamlit validada visualmente; suíte local com 483 testes aprovados. **Pendente:** Gemini e OCI reais no mesmo fluxo, falhas reproduzidas nos serviços reais, custo/tokens do Gemini e aprovação formal da equipe. O MVP **não** recebe o status *homologado ponta a ponta* (ver regra de bloqueio na seção 6).
+> **Situação em 17/11/2026 (`main` em `b303b96`, promovida pelo PR #12):** três cenários aprovados com simulação (H14) e com Gemini real + FakeOCI (H15); interface Streamlit validada visualmente; suíte local com 483 testes aprovados; CI 3.12/3.13 verde na `main`. **Pendente:** Gemini e OCI reais no mesmo fluxo, falhas reproduzidas nos serviços reais, custo/tokens do Gemini e aprovação formal da equipe. O MVP **não** recebe o status *homologado ponta a ponta* (ver regra de bloqueio na seção 6).
 
 **Referência da integração ao criar este documento:** `develop` no commit `cebdf4d` (PR #23 integrado). Revalidar o commit quando os testes forem executados.
 
@@ -62,7 +62,7 @@ Para todos: `documento_id` consistente, evidências referentes a texto efetivame
 | H10 | Falha parcial OCI não retorna sucesso nem `armazenamento_oci.status=confirmado` | I1/I5 | Teste de falha entre gravações | Aprovado com FakeOCI e testes ampliados; falhas na OCI real pendentes |
 | H11 | Endpoint `/processar` funciona **somente** em ambiente local autorizado; não publica rota sem composição/configuração segura | I1 | Testes HTTP, flags e Swagger local | Aprovado em aplicacao HTTP local; API principal sem rota de processamento; rotas de revisão humana também restritas às apps locais |
 | H12 | Entrada inválida, documento inexistente, falha externa e contrato inconsistente resultam em erro sanitizado e HTTP apropriado | I1/I2/I5 | Testes 403/404/422/502/503, conforme caso | Testes HTTP locais aprovados; falhas externas reais pendentes |
-| H13 | CI Python 3.12/3.13, suíte completa e `compileall` aprovados, sem segredos ou arquivos reais no Git | Todos | Checks GitHub + revisão de diff | Suíte local: 483 aprovados em `3968418` (17/11/2026); CI do commit final a confirmar |
+| H13 | CI Python 3.12/3.13, suíte completa e `compileall` aprovados, sem segredos ou arquivos reais no Git | Todos | Checks GitHub + revisão de diff | Aprovado: suíte local com 483 aprovados em `97517b9`; CI 3.12/3.13 verde no PR #12 e no push para `main` (`b303b96`, 17/11/2026) |
 | H14 | Demonstração documentada dos três cenários, com JSON sanitizado, timestamp, commit e identificador do teste | I1/I6 | Registro de execução e vídeo/roteiro se necessário | Aprovado com simulação (12/11/2026): [`docs/evidencias/h14_demonstracao_local.json`](evidencias/h14_demonstracao_local.json) |
 | H15 | Fluxo HTTP com Gemini real produz os resultados da seção 3, sem inventar dados | I1/I2 | Execução local controlada + evidência sanitizada | Aprovado real controlado local 3/3 (13/11/2026), com FakeOCI: [relatório](27_h15_homologacao_http_gemini_real.md) |
 
@@ -104,7 +104,7 @@ Para todos: `documento_id` consistente, evidências referentes a texto efetivame
 
 ### P3 — Liberação do MVP demonstrável
 
-- [ ] Suíte automatizada e CI 3.12/3.13 verdes no commit candidato. *(Suíte local verde em `3968418`; confirmar a CI no commit promovido para `main`.)*
+- [x] Suíte automatizada e CI 3.12/3.13 verdes no commit candidato. *(Suíte local verde em `97517b9`; CI verde no PR #12 e na `main` em `b303b96`.)*
 - [x] Evidências anexadas ao PR/relatório: commit, ambiente, execução, resultado, limitações (H09, H14, H15).
 - [x] README e procedimento de execução atualizados, sem segredos.
 - [ ] Equipe aprova explicitamente o **protótipo educacional**; nenhuma divulgação como uso clínico ou deploy público.
@@ -124,6 +124,7 @@ Copiar uma linha por execução, sem incluir dados clínicos não sintéticos ou
 | 13/11/2026 (hora não capturada) | `d9510da` | DOC-002 (H15) | Local, HTTP `127.0.0.1:8001` | Idem | R001, fila_prioritaria_avaliacao_humana, aguardando_auditoria | R001 (com R005 disparada), fila_prioritaria_avaliacao_humana, aguardando_auditoria (66,06 s) | Aprovado real controlado | Idem | I1/I2 |
 | 13/11/2026 (hora não capturada) | `d9510da` | DOC-005 (H15) | Local, HTTP `127.0.0.1:8001` | Idem | R002, auditoria_humana, aguardando_auditoria | R002, auditoria_humana, aguardando_auditoria; `dosagem_texto=null` (6,34 s) | Aprovado real controlado | Idem | I1/I2 |
 | 17/11/2026 14:00 | `b6427d1` + alterações integradas em `e8255fc` | DOC-001/002/005 pela interface Streamlit | Local, `app_demo_local` + Streamlit | Reais: API, RAG, regras, LangGraph, UI. Simulados: extração (fixture), FakeOCI | Resultados da seção 3; revisão humana registrada sem alterar o resultado | 3/3 conforme a seção 3; revisão `corrigir` gravada com `dosagem_texto` original mantido `null` | Aprovado com simulação | QA visual; correções de UI no PR #46 | Equipe |
+| 17/11/2026 | `97517b9` → `main` `b303b96` | Suíte completa (H13) | Local Python 3.12.10 + GitHub Actions 3.12/3.13 | Reais: API, RAG, regras, LangGraph. Simulados: extração (fixture), FakeOCI; testes de Gemini real desmarcados | Suíte e CI verdes | 483 passed, 3 deselected; CI verde no PR #12 e no push para `main` | Aprovado | PR #12 | Equipe |
 
 ## 8. Execução preliminar sem serviços reais
 
@@ -137,4 +138,4 @@ git diff --check
 
 **Não** configurar chaves/ativar serviços externos para concluir P0. Testes de Gemini e OCI reais ocorrerão separadamente, com autorização e controle de custos. O resultado local deve ser marcado como **baseline simulada**, não como homologação final.
 
-**Última baseline registrada:** 17/11/2026, `develop` em `3968418`: **483 passed, 3 deselected**; `compileall` e `git diff --check` sem erros.
+**Última baseline registrada:** 17/11/2026, `develop` em `97517b9` (conteúdo idêntico a `main` em `b303b96`): **483 passed, 3 deselected**; `compileall` e `git diff --check` sem erros; CI 3.12/3.13 verde na `main`.
