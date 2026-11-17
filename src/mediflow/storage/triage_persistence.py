@@ -38,6 +38,26 @@ def _ler_integridade(storage: OCIStorage, chave: str, esperado: bytes) -> None:
         raise PersistenciaIncompleta("Não foi possível confirmar a integridade do objeto.")
 
 
+_PASTA_STATUS = {
+    "processado": "processados",
+    "aguardando_auditoria": "auditoria_humana",
+}
+
+
+def chave_indice_status(resultado: ResultadoTriagem, arquivo_id: str, execucao_id: str) -> str:
+    """Chave do índice segregado por status e destino no bucket.
+
+    `processados/<destino>/...` para roteamento automático e
+    `auditoria_humana/<destino>/...` para revisão humana (inclui a fila
+    prioritária). Os documentos recebidos ficam em `originais/`.
+    """
+    pasta = _PASTA_STATUS.get(resultado.status)
+    if pasta is None:
+        raise ValueError("Resultado ainda não está concluído.")
+    destino = resultado.decisao_roteamento.destino_principal
+    return f"{pasta}/{destino}/{resultado.documento_id}/{arquivo_id}/{execucao_id}.json"
+
+
 def persistir_resultado(
     storage: OCIStorage,
     recibo: ReciboArquivo,
@@ -45,7 +65,7 @@ def persistir_resultado(
     *,
     execucao_id: str | None = None,
 ) -> ResultadoTriagem:
-    """Persiste histórico, depois resultado, sem alterar original nem manifesto.
+    """Persiste histórico, resultado e índice por status, sem alterar original nem manifesto.
 
     Em falhas, não realiza limpeza destrutiva; chaves de execução são imutáveis.
     A operação deve ser invocada somente após a triagem ter sido concluída.
@@ -120,6 +140,28 @@ def persistir_resultado(
         if hash_resultado != hashlib.sha256(blob).hexdigest():
             raise PersistenciaIncompleta("Hash de upload do resultado divergente.")
         _ler_integridade(storage, chave_resultado, blob)
+
+        # Índice segregado por status, gravado só após o resultado confirmado.
+        chave_status = chave_indice_status(resultado_confirmado, arq, identificador)
+        indice = _json_bytes({
+            "contrato_versao": "0.1",
+            "documento_id": doc,
+            "arquivo_id": arq,
+            "execucao_id": identificador,
+            "status": resultado_confirmado.status,
+            "destino_principal": resultado_confirmado.decisao_roteamento.destino_principal,
+            "regra_principal": resultado_confirmado.decisao_roteamento.regra_principal,
+            "requer_revisao_humana": resultado_confirmado.decisao_roteamento.requer_revisao_humana,
+            "chave_original": chave_original,
+            "chave_resultado": chave_resultado,
+            "chave_historico": chave_historico,
+        })
+        hash_indice = storage.upload_bytes_if_absent(
+            chave_status, indice, content_type="application/json"
+        )
+        if hash_indice != hashlib.sha256(indice).hexdigest():
+            raise PersistenciaIncompleta("Hash de upload do índice de status divergente.")
+        _ler_integridade(storage, chave_status, indice)
         return resultado_confirmado
     except Exception as exc:
         # Não expor mensagens OCI que contenham nomes, paths ou credenciais.

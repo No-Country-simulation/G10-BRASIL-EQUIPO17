@@ -56,8 +56,11 @@ def test_tres_cenarios_oficiais(doc_id, alerta, regra, destino, status, tipo):
     assert resultado.dados_extraidos == original.dados_extraidos
     assert resultado.evidencias == original.evidencias
     assert resultado.armazenamento_oci.status == "pendente"
-    assert resultado.classificacao.indicador_qualidade.metodo == "nao_calculado"
-    assert resultado.classificacao.indicador_qualidade.valor is None
+    indicador = resultado.classificacao.indicador_qualidade
+    assert indicador.metodo == "heuristica_completude_consistencia_v0"
+    assert indicador.calibrado is False
+    assert 0 <= indicador.valor <= 1
+    assert len(indicador.criterios) == 4
 
 
 def test_prioridade_urgente_supera_ambiguidade_sem_apagar_r002():
@@ -338,3 +341,85 @@ def test_motor_retorna_regra_e_destino_coerentes_para_r005():
     resultado = decidir("DOC-001", False)
     assert resultado.decisao_roteamento.regra_principal == "R005"
     assert resultado.decisao_roteamento.destino_principal == "prontuario_documental"
+
+
+# --- Indicador de qualidade (heurística v0) e fallback por indicador baixo ---
+
+def _sem_evidencias(doc_id: str, *, sem_profissional: bool = False) -> ExtracaoIA:
+    bruto = ler_extracao(doc_id).model_dump()
+    bruto["evidencias"] = []
+    if sem_profissional:
+        bruto["dados_extraidos"]["profissional"] = {"nome": None, "crm_texto": None}
+    return ExtracaoIA.model_validate(bruto)
+
+
+def _decidir_extracao(extracao: ExtracaoIA, *, confirmado: bool = False, motor=None):
+    return (motor or MotorRegrasDeterministico()).decidir(
+        extracao, entrada=entrada(), rag=RecuperacaoRAG(),
+        alerta_textual_confirmado=confirmado,
+    )
+
+
+def test_indicador_doc001_detalha_criterios():
+    resultado = decidir("DOC-001")
+    indicador = resultado.classificacao.indicador_qualidade
+    assert indicador.valor == 0.85  # 4/4 legíveis, 2/4 ancorados, sem conflito, profissional
+    assert any(c.startswith("completude: 4/4") for c in indicador.criterios)
+    assert any(c.startswith("evidencias: 2/4") for c in indicador.criterios)
+    codigos = [e.codigo for e in resultado.eventos]
+    assert "INDICADOR_QUALIDADE" in codigos and "FALLBACK_QUALIDADE_BAIXA" not in codigos
+
+
+def test_indicador_baixo_desvia_rotina_para_revisao_humana():
+    # Campos completos, mas nenhum ancorado no original e sem profissional: 0,6 < 0,75.
+    resultado = _decidir_extracao(_sem_evidencias("DOC-001", sem_profissional=True))
+    assert resultado.classificacao.indicador_qualidade.valor == 0.6
+    assert resultado.decisao_roteamento.regra_principal == "R006"
+    assert resultado.decisao_roteamento.destino_principal == "auditoria_humana"
+    assert resultado.decisao_roteamento.requer_revisao_humana is True
+    assert resultado.status == "aguardando_auditoria"
+    assert "R005" not in resultado.decisao_roteamento.regras_disparadas
+    assert any("abaixo do limiar" in o for o in resultado.validacao.observacoes)
+    assert "FALLBACK_QUALIDADE_BAIXA" in [e.codigo for e in resultado.eventos]
+
+
+def test_indicador_baixo_nao_rebaixa_alerta_confirmado():
+    resultado = _decidir_extracao(_sem_evidencias("DOC-002", sem_profissional=True), confirmado=True)
+    assert resultado.classificacao.indicador_qualidade.valor < 0.75
+    assert resultado.decisao_roteamento.regra_principal == "R001"
+    assert resultado.decisao_roteamento.destino_principal == "fila_prioritaria_avaliacao_humana"
+
+
+def test_ambiguidade_mantem_r002_com_indicador_reduzido():
+    resultado = decidir("DOC-005", tipo="png")
+    assert resultado.decisao_roteamento.regra_principal == "R002"
+    assert resultado.classificacao.indicador_qualidade.valor < 0.75
+    assert "FALLBACK_QUALIDADE_BAIXA" not in [e.codigo for e in resultado.eventos]
+
+
+def test_tipo_desconhecido_tem_indicador_zero():
+    bruto = ler_extracao("DOC-001").model_dump()
+    bruto["tipo_documento"] = "outro_desconhecido"
+    resultado = _decidir_extracao(ExtracaoIA.model_validate(bruto))
+    assert resultado.classificacao.indicador_qualidade.valor == 0.0
+    assert resultado.decisao_roteamento.regra_principal == "R006"
+
+
+def test_limiar_configuravel_no_yaml(tmp_path):
+    dados = yaml.safe_load((RAIZ / "rules" / "validacao.yaml").read_text(encoding="utf-8"))
+    dados["indicador_qualidade"]["limiar_revisao_humana"] = 0.9
+    arquivo = tmp_path / "validacao.yaml"
+    arquivo.write_text(yaml.safe_dump(dados, allow_unicode=True), encoding="utf-8")
+    motor = MotorRegrasDeterministico(arquivo_validacao=arquivo)
+    resultado = _decidir_extracao(ler_extracao("DOC-001"), motor=motor)
+    assert resultado.decisao_roteamento.regra_principal == "R006"  # 0,85 < 0,9
+
+
+@pytest.mark.parametrize("valor", [0.3, 1.5, True, "0.8", None])
+def test_limiar_invalido_rejeitado(tmp_path, valor):
+    dados = yaml.safe_load((RAIZ / "rules" / "validacao.yaml").read_text(encoding="utf-8"))
+    dados["indicador_qualidade"]["limiar_revisao_humana"] = valor
+    arquivo = tmp_path / "validacao.yaml"
+    arquivo.write_text(yaml.safe_dump(dados, allow_unicode=True), encoding="utf-8")
+    with pytest.raises(ValueError, match="Limiar"):
+        MotorRegrasDeterministico(arquivo_validacao=arquivo)

@@ -166,5 +166,5 @@ DONE_STATUSES = ("processed", "approved", "corrected")
 DASHBOARD_REFRESH = "30s"
 
 # Abaixo deste valor do indicador de qualidade o documento é destacado.
-# No contrato v0.1 o indicador vem `null` (não calculado) e não é calibrado.
-LOW_CONFIDENCE_THRESHOLD = 0.70
+# Mesmo padrão do motor (rules/validacao.yaml); heurística v0, não calibrada.
+LOW_CONFIDENCE_THRESHOLD = 0.75
