@@ -71,7 +71,7 @@ canônica do contrato.
 | GET  | `/gemini/estado`, `/demo/estado`, `/health` | indicador de conexão e modo | implementado (um por app) |
 | POST | `/v1/triagens/arquivos` | 1ª etapa do envio: multipart `documento_id`, `canal_origem`, `arquivo` → `ReciboArquivo` | implementado |
 | POST | `/v1/triagens/arquivos/{documento_id}/{arquivo_id}/processar` | 2ª etapa: → `ResultadoTriagem` | implementado nas apps locais |
-| POST | `/v1/triagens/texto` | aba "Colar texto" | API principal responde 501; ausente nas apps locais |
+| POST | `/v1/triagens/texto` | aba "Texto livre" (`EntradaTexto` → `ResultadoTriagem`); botões carregam as amostras de `amostras/texto/` | implementado nas apps locais (só textos das amostras oficiais); API principal responde 501 |
 | GET  | `/v1/triagens/{documento_id}` | página Resultado | implementado nas apps locais |
 | GET  | `/v1/triagens?status=` | Visão geral e Fila de auditoria | implementado nas apps locais |
 | POST | `/v1/triagens/{documento_id}/revisao` | decisão do auditor (`aprovar`, `corrigir`, `rejeitar`) | implementado nas apps locais |
