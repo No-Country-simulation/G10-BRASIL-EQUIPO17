@@ -18,6 +18,17 @@ Montar aplicação FastAPI isolada que reutiliza `receber_documento`, `ServicoTr
 - Cada upload novo cria original e manifesto; cada processamento novo cria histórico e resultado. A API ainda não implementa idempotência: repetir POST pode gerar custos e objetos adicionais. Não repetir chamadas reais automaticamente.
 - Tratamento de falhas e integridade reutiliza I1/I5. Não há transação atômica de objetos nem limpeza destrutiva.
 
+## Fila e revisão humana no bucket dev
+
+A H16 também registra as rotas de `triage_review.py`, sobre o **mesmo bucket** `mediflow-docs-dev`:
+
+- `GET /v1/triagens?status=` e `GET /v1/triagens/{documento_id}` listam/consultam os resultados persistidos, com `recebido_em` e `revisao_humana`.
+- `POST /v1/triagens/{documento_id}/revisao` grava a decisão (`aprovar`, `corrigir`, `rejeitar`) como objeto **imutável** em `revisoes/{documento_id}/…json`. O `ResultadoTriagem` original nunca é alterado; correções ficam só no registro da revisão.
+- Mesmas travas da H16 (localhost, flags, consentimentos e bucket dev). **Sem autenticação:** o nome do revisor é declarativo; cada decisão é uma gravação real no bucket.
+- A interface Streamlit reconhece o modo pela rota `/h16/estado` ("H16 (Gemini + OCI real)") e habilita a fila de auditoria com revisão.
+
+Na homologação real, depois do processamento, registrar uma revisão do DOC-005 e conferir o objeto em `revisoes/` e a leitura via `GET /v1/triagens/DOC-005`.
+
 ## Arquivos novos
 
 - `src/mediflow/api/app_h16_local.py` — composição isolada H16.

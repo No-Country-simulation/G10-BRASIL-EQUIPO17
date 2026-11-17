@@ -16,6 +16,7 @@ from mediflow.api.app_demo_local import _AMOSTRAS, _RAIZ
 from mediflow.api.app_gemini_local import ExtratorSomenteAmostras, fornecer_extrator_gemini
 from mediflow.api.composicao_i1_i3_i4_i5 import montar_servico_i1_i3_i4_i5
 from mediflow.api.triage_processing import obter_servico_triagem, router as router_processamento
+from mediflow.api.triage_review import router as router_revisao
 from mediflow.api.uploads import (
     MAX_FILE_BYTES,
     ReciboArquivo,
@@ -126,6 +127,9 @@ app = FastAPI(
                  "consentimento explicito e bucket OCI de desenvolvimento."),
 )
 app.include_router(router_processamento)
+# Fila e revisao humana sobre o MESMO bucket dev: listam resultados persistidos e gravam
+# cada decisao como objeto imutavel em revisoes/. Revisor declarativo, sem autenticacao.
+app.include_router(router_revisao)
 app.dependency_overrides[armazenamento] = fornecer_storage_h16
 app.dependency_overrides[obter_servico_triagem] = fornecer_servico_h16
 
@@ -177,5 +181,6 @@ def estado_h16():
         "oci_configurada_para_bucket_dev": _flags_h16(),
         "rag": "local_real",
         "decisao": "langgraph_e_regras_reais",
+        "revisao_humana": "revisoes_imutaveis_no_bucket_dev_sem_autenticacao",
         "aviso": "A configuracao nao comprova chamadas reais; verificar execucao e leituras.",
     }

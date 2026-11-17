@@ -298,6 +298,7 @@ O projeto contém **três aplicações FastAPI distintas**. Elas não são inter
 | **API de desenvolvimento** | `mediflow.api.app:app` | Saúde, upload/consulta em OCI configurada, preview e rota isolada de extração Gemini | **Não** registra `/processar`; `POST /v1/triagens/texto` responde 501 |
 | **Demonstração local** | `mediflow.api.app_demo_local:app` | Upload + processamento dos três arquivos oficiais; RAG/regras/LangGraph reais locais | Extração por fixtures; FakeOCI em memória |
 | **Homologação Gemini local** | `mediflow.api.app_gemini_local:app` | Composição HTTP com extrator Gemini injetável | Gemini real bloqueado por padrão; FakeOCI; somente amostras oficiais |
+| **H16 Gemini + OCI dev** | `mediflow.api.app_h16_local:app` | Upload, processamento, fila e **revisão humana** com Gemini real e bucket OCI `mediflow-docs-dev` | Exige consentimentos explícitos; somente amostras oficiais; revisor sem autenticação. Ver [H16](docs/28_h16_preparacao_http_gemini_oci.md) |
 
 **Endpoints da demonstração (`app_demo_local`)**:
 
@@ -312,7 +313,7 @@ O projeto contém **três aplicações FastAPI distintas**. Elas não são inter
 | `GET` | `/v1/triagens/{documento_id}` | Consulta o último resultado, com `recebido_em` e `revisao_humana` |
 | `POST` | `/v1/triagens/{documento_id}/revisao` | Registra `aprovar`, `corrigir` ou `rejeitar`; o resultado original não é alterado |
 
-As três últimas rotas (revisão humana) também existem na homologação Gemini local e **não** são registradas na API de desenvolvimento.
+As três últimas rotas (revisão humana) também existem na homologação Gemini local e na H16 (gravando no bucket OCI dev) e **não** são registradas na API de desenvolvimento.
 
 **Outras rotas:** na API de desenvolvimento, `GET /health` comprova apenas disponibilidade HTTP, `POST /v1/triagens/texto` continua intencionalmente não implementado (**501**) e `POST /v1/triagens/arquivos/{documento_id}/{arquivo_id}/extracao` usa o adaptador Gemini quando há OCI e credenciais configuradas. Na aplicação de homologação Gemini, `GET /gemini/estado` indica configuração/autorização, **não** sucesso da API externa; sem consentimento explícito, `/processar` retorna **503 `GEMINI_REAL_NAO_AUTORIZADO`**. Veja [documentação do modo controlado](docs/25_homologacao_gemini_local_fakeoci.md).
 

@@ -151,3 +151,79 @@ def test_estado_nao_comprova_integracao_real(ambiente):
 
 def test_app_principal_nao_publica_processamento():
     assert not any(getattr(r, "path", "").endswith("/processar") for r in app_principal.routes)
+
+
+# --- Fila e revisao humana na H16 (offline: FakeOCI + extrator por fixture) ---
+
+def processar(cliente, doc_id):
+    recibo = upload(cliente, doc_id).json()
+    r = cliente.post(f"/v1/triagens/arquivos/{doc_id}/{recibo['arquivo_id']}/processar")
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_fila_lista_resultados_persistidos_no_bucket(ambiente):
+    cliente, _, _ = ambiente
+    for doc_id in ARQUIVOS:
+        processar(cliente, doc_id)
+    r = cliente.get("/v1/triagens", params={"status": "aguardando_auditoria"})
+    assert r.status_code == 200, r.text
+    fila = r.json()
+    assert [d["documento_id"] for d in fila] == ["DOC-002", "DOC-005"]
+    assert all(d["revisao_humana"] is None and d["recebido_em"] for d in fila)
+    assert cliente.get("/v1/triagens/DOC-001").json()["status"] == "processado"
+
+
+def test_revisao_grava_objeto_imutavel_sem_alterar_resultado(ambiente):
+    cliente, fake, _ = ambiente
+    resultado = processar(cliente, "DOC-005")
+    chave_resultado = resultado["armazenamento_oci"]["chave_resultado"]
+    original = fake.objetos[chave_resultado]
+    r = cliente.post("/v1/triagens/DOC-005/revisao", json={
+        "acao": "corrigir", "revisor": "Auditora Sintetica",
+        "comentario": "Dose confirmada com o prescritor (cenario ficticio).",
+        "correcoes": {"dados_extraidos": {"medicamentos": [
+            {"nome": "Medicamento Alfa (ficticio)", "dosagem_texto": "1 comprimido", "dosagem_status": "legivel"}]}},
+    })
+    assert r.status_code == 201, r.text
+    assert fake.objetos[chave_resultado] == original
+    assert [c for c in fake.objetos if c.startswith("revisoes/DOC-005/")]
+    consulta = cliente.get("/v1/triagens/DOC-005").json()
+    assert consulta["revisao_humana"]["acao"] == "corrigir"
+    assert consulta["dados_extraidos"]["medicamentos"][0]["dosagem_texto"] is None
+    pendentes = cliente.get("/v1/triagens", params={"status": "aguardando_auditoria"}).json()
+    assert all(d["revisao_humana"] for d in pendentes if d["documento_id"] == "DOC-005")
+
+
+def test_revisao_invalida_e_documento_inexistente(ambiente):
+    cliente, fake, _ = ambiente
+    processar(cliente, "DOC-002")
+    r = cliente.post("/v1/triagens/DOC-002/revisao", json={"acao": "rejeitar", "revisor": "Auditor"})
+    assert r.status_code == 422
+    r = cliente.post("/v1/triagens/DOC-999/revisao", json={"acao": "aprovar", "revisor": "Auditor"})
+    assert r.status_code == 404
+    assert not any(c.startswith("revisoes/") for c in fake.objetos)
+
+
+def test_revisao_h16_bloqueada_sem_autorizacao(ambiente, monkeypatch):
+    cliente, fake, _ = ambiente
+    monkeypatch.setenv("MEDIFLOW_OCI_REAL_ACK", "nao")
+    assert cliente.get("/v1/triagens").status_code == 403
+    r = cliente.post("/v1/triagens/DOC-001/revisao", json={"acao": "aprovar", "revisor": "Auditor"})
+    assert r.status_code == 403
+    assert not fake.objetos
+
+
+def test_estado_h16_informa_revisao_sem_autenticacao(ambiente):
+    cliente, _, _ = ambiente
+    assert "sem_autenticacao" in cliente.get("/h16/estado").json()["revisao_humana"]
+
+
+def test_app_principal_continua_sem_revisao():
+    assert not any(getattr(r, "path", "").endswith("/revisao") for r in app_principal.routes)
+
+
+def test_interface_reconhece_o_modo_h16():
+    from mediflow.ui.config import SIMULATED_MODES, STATUS_ENDPOINTS
+    assert STATUS_ENDPOINTS["/h16/estado"] == "H16 (Gemini + OCI real)"
+    assert STATUS_ENDPOINTS["/h16/estado"] not in SIMULATED_MODES
