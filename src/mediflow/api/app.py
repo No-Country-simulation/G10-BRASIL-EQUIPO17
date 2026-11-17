@@ -27,7 +27,7 @@ def criar_triagem_texto(entrada: EntradaTexto) -> None:
     """Valida entrada, mas nao finge processamento que ainda nao existe."""
     raise HTTPException(
         status_code=501,
-        detail={"codigo": "TRIAGEM_NAO_IMPLEMENTADA", "mensagem": "Fluxo de ingestao previsto para o Dia 5."},
+        detail={"codigo": "TRIAGEM_NAO_IMPLEMENTADA", "mensagem": "Triagem por texto disponivel somente nos apps locais (app_demo_local / app_gemini_local)."},
     )
 
 

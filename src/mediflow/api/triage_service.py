@@ -23,6 +23,7 @@ _TIPOS = {
     "application/pdf": "pdf",
     "image/png": "png",
     "image/jpeg": "jpeg",
+    "text/plain": "texto",
 }
 _DOCUMENTO_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{2,63}$")
 _ARQUIVO_ID = re.compile(r"^[a-f0-9]{32}$")

@@ -21,8 +21,8 @@ from mediflow.storage.oci_storage import OCIStorage
 from mediflow.storage.triage_persistence import persistir_resultado
 from mediflow_contracts.models import ResultadoTriagem
 
-_MIME = {"pdf": "application/pdf", "png": "image/png", "jpeg": "image/jpeg"}
-_EXTENSOES = {"pdf": {".pdf"}, "png": {".png"}, "jpeg": {".jpg", ".jpeg"}}
+_MIME = {"pdf": "application/pdf", "png": "image/png", "jpeg": "image/jpeg", "texto": "text/plain"}
+_EXTENSOES = {"pdf": {".pdf"}, "png": {".png"}, "jpeg": {".jpg", ".jpeg"}, "texto": {".txt"}}
 
 
 class VinculoArquivoInvalido(ValueError):
