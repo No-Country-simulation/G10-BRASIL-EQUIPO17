@@ -11,7 +11,7 @@ O **MediFlow** é um protótipo educacional para receber documentos de saúde **
 > [!IMPORTANT]
 > **Não é um sistema clínico.** O MediFlow não diagnostica, prescreve, define condutas, autoriza procedimentos nem dispensa medicamentos. Os dados e documentos de demonstração são fictícios. **Não utilize dados reais de pacientes, não exponha os serviços à internet e não interprete alertas documentais como avaliação médica.**
 
-**Estado verificado na branch `develop`:** a demonstração HTTP local processa os três cenários oficiais, com **extração por fixtures** e **FakeOCI em memória**, enquanto RAG, confirmação independente, regras e LangGraph são executados localmente. A extração por Gemini e a persistência Oracle real possuem implementações e validações específicas, **mas o fluxo HTTP completo com ambos os serviços reais ainda não foi homologado**.
+**Estado verificado na branch `develop`:** a demonstração HTTP local processa os três cenários oficiais, com **extração por fixtures** e **FakeOCI em memória**, enquanto RAG, confirmação independente, regras e LangGraph são executados localmente. O fluxo HTTP completo também foi homologado com o **Gemini real** nos três cenários (H15), ainda com FakeOCI. A interface Streamlit opera envio, resultado e revisão humana sobre as APIs locais. A persistência Oracle real foi homologada **isoladamente** (H09); **o fluxo completo com Gemini e OCI reais juntos não foi executado** e permanece como limitação desta entrega.
 
 ## Índice
 
@@ -34,14 +34,14 @@ O **MediFlow** é um protótipo educacional para receber documentos de saúde **
 | Capacidade | Estado comprovado na `develop` |
 |---|---|
 | Recepção de PDF, PNG e JPEG, com manifesto e SHA-256 | **Implementada**; testes HTTP e validações de integridade |
-| OCR e extração estruturada com Google Gemini | **Implementados**; testes controlados offline; validação do Gemini real no fluxo completo **pendente** |
+| OCR e extração estruturada com Google Gemini | **Implementados**; testes controlados offline; **Gemini real homologado no fluxo HTTP** dos três cenários com FakeOCI (H15) |
 | Recuperação de referências (RAG) | **Implementada e executada localmente**, com fichas versionadas |
 | Confirmação de marcador de alerta no original | **Implementada** com leitura independente da resposta da IA |
 | Regras de encaminhamento R001–R006 e LangGraph | **Implementados e testados localmente** |
 | Resultado estruturado em `ResultadoTriagem v0.1` | **Implementado** com validação Pydantic |
 | Persistência de originais, manifestos, históricos e resultados | Adaptador implementado; **OCI real homologada isoladamente** no cenário H09; FakeOCI usada no fluxo demonstrativo |
-| Demonstração dos três cenários | **3/3 aprovados com simulação** no critério H14 |
-| Interface gráfica (Streamlit) | **Integrada às APIs locais** (envio, processamento, resultado e painel da sessão); ver [`src/mediflow/ui/README.md`](src/mediflow/ui/README.md) |
+| Demonstração dos três cenários | **3/3 aprovados com simulação** (H14) e **3/3 com Gemini real + FakeOCI** (H15) |
+| Interface gráfica (Streamlit) | **Integrada às APIs locais** (visão geral, envio, resultado com regra principal e evidências, fila de auditoria) e **validada visualmente nos três cenários**, com aviso permanente de simulação; ver [`src/mediflow/ui/README.md`](src/mediflow/ui/README.md) |
 | Revisão humana operacional | **Implementada nas APIs locais** (listagem, consulta e registro de aprovar/corrigir/rejeitar, gravados na FakeOCI); sem autenticação do revisor |
 | Deploy público, autenticação e uso clínico | **Não implementados ou autorizados** |
 
@@ -147,7 +147,7 @@ Os documentos oficiais de teste são **fictícios** e estão versionados em [`am
 | **Alerta — DOC-002** | `amostras/pdf/DOC-002_laudo_imagem_alerta.pdf` | R001 | `fila_prioritaria_avaliacao_humana` | `aguardando_auditoria` |
 | **Ambiguidade — DOC-005** | `amostras/imagens/DOC-005_receita_ilegivel.png` | R002 | `auditoria_humana` | `aguardando_auditoria` |
 
-O DOC-005 preserva a dose ilegível como `null`; **não há preenchimento por suposição**. O DOC-002 depende de confirmação independente do marcador no documento original. **Evidência:** [`docs/evidencias/h14_demonstracao_local.json`](docs/evidencias/h14_demonstracao_local.json) e [procedimento H14](docs/26_h14_demonstracao_local.md). O relatório registra **3/3 cenários aprovados com simulação**, não Gemini/OCI reais ou interface visual.
+O DOC-005 preserva a dose ilegível como `null`; **não há preenchimento por suposição**. O DOC-002 depende de confirmação independente do marcador no documento original. **Evidência:** [`docs/evidencias/h14_demonstracao_local.json`](docs/evidencias/h14_demonstracao_local.json) e [procedimento H14](docs/26_h14_demonstracao_local.md). O relatório registra **3/3 cenários aprovados com simulação**, não Gemini/OCI reais ou interface visual. Com o **Gemini real** no mesmo fluxo HTTP, os três cenários chegaram às mesmas regras, destinos e status (FakeOCI; OCI real não usada): ver [`docs/evidencias/h15_gemini_http_real.json`](docs/evidencias/h15_gemini_http_real.json) e o [relatório H15](docs/27_h15_homologacao_http_gemini_real.md).
 
 ## Tecnologias e organização do projeto
 
@@ -308,6 +308,11 @@ O projeto contém **três aplicações FastAPI distintas**. Elas não são inter
 | `GET` | `/v1/triagens/arquivos/{documento_id}/{arquivo_id}` | Consulta o recibo de upload, **não** o resultado de triagem |
 | `GET` | `/v1/triagens/arquivos/{documento_id}` | Lista arquivos com paginação (`limite`, `cursor`) |
 | `POST` | `/v1/triagens/arquivos/{documento_id}/{arquivo_id}/processar` | Devolve `ResultadoTriagem v0.1` |
+| `GET` | `/v1/triagens?status=` | Lista as triagens persistidas (filtro opcional por status do contrato) |
+| `GET` | `/v1/triagens/{documento_id}` | Consulta o último resultado, com `recebido_em` e `revisao_humana` |
+| `POST` | `/v1/triagens/{documento_id}/revisao` | Registra `aprovar`, `corrigir` ou `rejeitar`; o resultado original não é alterado |
+
+As três últimas rotas (revisão humana) também existem na homologação Gemini local e **não** são registradas na API de desenvolvimento.
 
 **Outras rotas:** na API de desenvolvimento, `GET /health` comprova apenas disponibilidade HTTP, `POST /v1/triagens/texto` continua intencionalmente não implementado (**501**) e `POST /v1/triagens/arquivos/{documento_id}/{arquivo_id}/extracao` usa o adaptador Gemini quando há OCI e credenciais configuradas. Na aplicação de homologação Gemini, `GET /gemini/estado` indica configuração/autorização, **não** sucesso da API externa; sem consentimento explícito, `/processar` retorna **503 `GEMINI_REAL_NAO_AUTORIZADO`**. Veja [documentação do modo controlado](docs/25_homologacao_gemini_local_fakeoci.md).
 
@@ -362,7 +367,7 @@ git diff --check
 git diff --check
 ```
 
-**Última referência de validação local informada para esta entrega:** **467 testes aprovados, 1 teste Gemini real excluído intencionalmente**; **4 testes específicos H14 aprovados**; **3/3 cenários com simulação**, sem falhas de compilação. As contagens são históricas e podem mudar com novos commits. A CI executa seu próprio `pytest -q`; sem credenciais, os testes externos são omitidos ou ignorados conforme a configuração do teste.
+**Última referência de validação local para esta entrega (17/11/2026, `develop` em `3968418`):** **483 testes aprovados, 3 desmarcados intencionalmente** (`-k "not fluxo_api_com_gemini_real"`), sem falhas de compilação; inclui os testes de revisão humana ([`tests/test_api_revisao_humana.py`](tests/test_api_revisao_humana.py)). As contagens são históricas e podem mudar com novos commits. A CI executa seu próprio `pytest -q`; sem credenciais, os testes externos são omitidos ou ignorados conforme a configuração do teste.
 
 **Documentos de evidência:**
 
@@ -372,6 +377,7 @@ git diff --check
 - [H11 — controles de processamento local](docs/19_h11_controles_processamento_local_i1.md)
 - [H12 — tratamento seguro de erros](docs/20_h12_tratamento_seguro_erros_api_i1.md)
 - [H14 — demonstração técnica dos três cenários](docs/26_h14_demonstracao_local.md)
+- [H15 — fluxo HTTP com Gemini real e FakeOCI](docs/27_h15_homologacao_http_gemini_real.md)
 
 ## Segurança e limitações
 
@@ -386,14 +392,14 @@ git diff --check
 
 ## Próximas etapas
 
-As principais lacunas para a homologação completa do desafio são:
+Já concluído nesta entrega: Gemini real no fluxo HTTP dos três cenários (H15), interface Streamlit validada visualmente e revisão humana registrada nas APIs locais. As lacunas que permanecem são:
 
-1. **Concluir e registrar a extração Gemini real** nos três documentos sintéticos, incluindo evidências literais, páginas, divergências, latência e consumo; não alterar gabaritos para forçar aprovação.
-2. **Conectar Gemini e OCI reais no mesmo fluxo HTTP autorizado**, preservando a lógica R001–R006, o contrato JSON e os controles de falha; o H09 atual comprova apenas o armazenamento isolado.
-3. **Integrar e validar a interface visual**, inclusive apresentação de regra, destino, revisão humana, fontes, erros e aviso permanente do modo de simulação.
+1. **Conectar Gemini e OCI reais no mesmo fluxo HTTP autorizado**, preservando a lógica R001–R006, o contrato JSON e os controles de falha; o H09 comprova apenas o armazenamento isolado.
+2. **Reproduzir na OCI e no Gemini reais as falhas já testadas com fakes** (H10 e H12): falha parcial entre gravações, indisponibilidade e resposta inválida do serviço externo.
+3. **Coletar custo, latência por etapa e consumo de tokens** do Gemini real, que não foram registrados no H15.
 4. **Definir avaliação de qualidade mensurável**, sem inventar score ou declarar confiança calibrada antes da validação.
-5. **Completar os controles para um ambiente compartilhado ou público** — autenticação, autorização, retenção, idempotência, observabilidade, revisão de segurança e verificação dos limites Always Free — antes de considerar qualquer deploy.
-6. **Promover a versão candidata de `develop` para `main` somente após os critérios finais serem revisados.** Os READMEs podem divergir enquanto essa promoção não ocorrer.
+5. **Completar os controles para um ambiente compartilhado ou público** — autenticação do revisor, autorização, retenção, idempotência, observabilidade, revisão de segurança e verificação dos limites Always Free — antes de considerar qualquer deploy.
+6. **Habilitar o processamento de texto colado**, hoje recusado pelas APIs (a interface já oferece a aba).
 
 ## Documentação e colaboração
 
