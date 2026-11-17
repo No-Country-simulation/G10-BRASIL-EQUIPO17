@@ -87,6 +87,16 @@ gravada como objeto imutável em `revisoes/{documento_id}/…json`; o resultado 
 alterado e as correções do auditor ficam só no registro da revisão. Como o armazenamento é a
 FakeOCI em memória, tudo some quando a API é reiniciada.
 
-Contra a API principal, que não tem essas rotas, a UI volta a usar os `ResultadoTriagem` que
-**a própria API devolveu nesta sessão** do navegador, e a decisão do auditor mostra um erro
-explicando que a API não registra revisões.
+Contra uma API sem essas rotas (a principal ou a H16), a UI volta a usar os `ResultadoTriagem` que
+**a própria API devolveu nesta sessão** do navegador, e deixa isso explícito:
+
+- A Visão geral e a Fila de auditoria mostram o aviso **"Dados desta sessão do navegador"**, para
+  não confundir com histórico permanente.
+- Cada resultado guardado na sessão recebe `ui_registrado_em_utc`, a hora (UTC) em que **a interface**
+  o recebeu. Esse horário só é usado quando a API não informa `recebido_em`, e aparece marcado com
+  `*` ("registrado pela interface"). Assim os filtros **Hoje**, **24 h** e **7 dias** funcionam também
+  nesse modo.
+- A revisão humana aparece como **"ainda não integrada nesta API"**, com os botões de aprovar e
+  rejeitar desabilitados. Documentos, filtros, prioridades e evidências continuam visíveis.
+
+Os testes offline da interface ficam em `tests/test_ui_interface.py`.

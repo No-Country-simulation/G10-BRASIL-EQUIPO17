@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import PurePath
 from typing import Any
 
@@ -49,6 +49,10 @@ class APIError(Exception):
 
 
 _SESSION_RESULTS = "_api_results"
+_SESSION_CAPABILITIES = "_api_capabilities"
+# Campo próprio da UI: hora (UTC) em que ESTA interface recebeu o resultado.
+# Não é a data de recebimento do backend (`recebido_em`) e nunca a substitui.
+UI_RECEIVED_KEY = "ui_registrado_em_utc"
 _DOC_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{2,63}$")
 
 
@@ -72,10 +76,21 @@ def _session_results() -> dict[str, dict]:
     return st.session_state.setdefault(_SESSION_RESULTS, {})
 
 
+def _now_utc_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
 def _remember(result: dict) -> dict:
+    """Guarda o resultado na sessão, marcando a hora em que a interface o recebeu."""
     if isinstance(result, dict) and result.get("documento_id"):
+        result.setdefault(UI_RECEIVED_KEY, _now_utc_iso())
         _session_results()[result["documento_id"]] = result
     return result
+
+
+def _capabilities(base_url: str) -> dict[str, bool]:
+    """O que a API desta URL oferece, aprendido pelas respostas (sem pedidos extra)."""
+    return st.session_state.setdefault(_SESSION_CAPABILITIES, {}).setdefault(base_url, {})
 
 
 def _detail_message(detail: Any) -> str | None:
@@ -172,10 +187,21 @@ class MediFlowClient:
         except APIError as err:
             if not err.not_implemented:
                 raise
+            # Sem listagem, a API também não tem revisão (mesmo router): usa a sessão.
+            _capabilities(self.base_url).update(listing=False, review=False)
             docs = list(_session_results().values())
             return [d for d in docs if not status or d.get("status") == status]
+        _capabilities(self.base_url).update(listing=True, review=True)
         # Aceita tanto uma lista simples como {"items": [...]}
         return data.get("items", []) if isinstance(data, dict) else data
+
+    def uses_session_data(self) -> bool:
+        """True quando a API não lista triagens e a UI mostra só os resultados desta sessão."""
+        return _capabilities(self.base_url).get("listing") is False
+
+    def review_supported(self) -> bool | None:
+        """False quando a API não oferece revisão humana; None se ainda não se sabe."""
+        return _capabilities(self.base_url).get("review")
 
     def get_stats(self) -> dict:
         return compute_stats(self.list_documents())
@@ -228,6 +254,7 @@ class MediFlowClient:
             return _remember(self._request("POST", "review", path_params={"doc_id": doc_id}, json=payload))
         except APIError as err:
             if err.not_implemented:
+                _capabilities(self.base_url)["review"] = False
                 raise APIError("Esta API não registra revisões humanas. A decisão não foi gravada.",
                                status_code=err.status_code, detail=err.detail) from err
             raise

@@ -14,8 +14,9 @@ import streamlit as st
 
 from mediflow.ui.api_client import APIError, get_backend
 from mediflow.ui.components import (
-    badge_row, card_styles, flag_label, format_confidence, mask_name, parse_ts,
-    priority_badge, priority_label, show_api_error,
+    REVIEW_UNAVAILABLE_NOTICE, SESSION_DATA_NOTICE, badge_row, card_styles, flag_label,
+    format_confidence, mask_name, parse_ts, priority_badge, priority_label, received_label,
+    show_api_error,
 )
 from mediflow.ui.config import DESTINATIONS, DOCUMENT_TYPES, PRIORITIES
 from mediflow.ui.models import PRIORITY_TO_CONTRACT, normalize_document
@@ -218,13 +219,14 @@ def _queue_card(queue: list[dict], now: pd.Timestamp) -> list[dict]:
 
 
 def _review_card(backend, doc: dict, next_id: str | None, now: pd.Timestamp) -> None:
+    review_off = backend.review_supported() is False
     """Documento selecionado: porquê está na fila, campos editáveis e decisão."""
     ex = doc["extracted"]
     with st.container(border=True, height="stretch", key="card_review"):
         with st.container(horizontal=True, vertical_alignment="top"):
             with st.container(gap=None):
                 st.subheader(f"{doc['id']} · {_patient(doc)}", anchor=False)
-                received = f"{doc['ts']:%d/%m às %H:%M}" if doc["ts"] is not None else "—"
+                received = received_label(doc, "%d/%m às %H:%M")
                 st.caption(f"{ex['document_type']} · recebido {received} · aguardando há {_wait(doc['ts'], now)}")
             if st.button(":material/open_in_new:", key="btn_open_result", type="tertiary",
                          help="Abrir a análise completa"):
@@ -286,17 +288,20 @@ def _review_card(backend, doc: dict, next_id: str | None, now: pd.Timestamp) -> 
             comment = st.text_area("Comentário", height=80,
                                    placeholder="Obrigatório para rejeitar. Ex.: dose confirmada com o prescritor.")
 
-            if not reviewer:
+            if review_off:
+                st.warning(REVIEW_UNAVAILABLE_NOTICE, icon=":material/block:")
+            elif not reviewer:
                 st.caption(":material/badge: Informe seu nome em **Revisor**, na barra lateral, para decidir.")
             else:
                 # Dentro do formulário o rótulo não acompanha as edições: o efeito fica explícito aqui.
                 st.caption(":material/edit_note: Sem alterações, registra uma **aprovação**; com algum campo "
                            "alterado, registra uma **correção**. O resultado original não é modificado.")
             with st.container(horizontal=True):
-                reject = st.form_submit_button("Rejeitar", icon=":material/close:", disabled=not reviewer)
+                reject = st.form_submit_button("Rejeitar", icon=":material/close:",
+                                               disabled=review_off or not reviewer)
                 st.space("stretch")
                 approve = st.form_submit_button("Aprovar / salvar correções", type="primary",
-                                                icon=":material/check:", disabled=not reviewer)
+                                                icon=":material/check:", disabled=review_off or not reviewer)
 
         if not (approve or reject):
             return
@@ -382,6 +387,8 @@ def render() -> None:
                  if doc and doc["status"] == "pending_review" and not doc["review"] else [])
 
     _header(queue, now)
+    if backend.uses_session_data():
+        st.info(SESSION_DATA_NOTICE, icon=":material/history_toggle_off:")
     if not queue:
         _empty_state()
         return

@@ -16,7 +16,8 @@ import streamlit as st
 
 from mediflow.ui.api_client import APIError, get_backend
 from mediflow.ui.components import (
-    card_styles, mask_name, parse_ts, priority_label, show_api_error, status_label, surface,
+    SESSION_DATA_NOTICE, UI_TIME_NOTE, card_styles, mask_name, parse_ts, priority_label,
+    received_label, show_api_error, status_label, surface,
 )
 from mediflow.ui.config import DASHBOARD_REFRESH, DONE_STATUSES, PRIORITIES, STATUSES
 from mediflow.ui.models import normalize_document
@@ -496,7 +497,7 @@ def _table(docs: list[dict]) -> None:
         # centrado e alinhado à esquerda (a data e a confiança deixam de ser tipos nativos).
         df = pd.DataFrame([{
             "ID": d["id"],
-            "Recebido": f"{d['ts']:%d/%m %H:%M}" if d["ts"] is not None else "—",
+            "Recebido": received_label(d),
             "Paciente": mask_name(d["extracted"]["patient_name"]) if mask else d["extracted"]["patient_name"],
             "Tipo": d["extracted"]["document_type"],
             "Prioridade": f"{PRIORITY_DOT.get(d['priority'], '⚪')} {priority_label(d['priority'])}",
@@ -573,7 +574,8 @@ def _empty_state() -> None:
 # --------------------------------------------------------------------------- #
 def _body() -> None:
     now = pd.Timestamp.now().floor("s")
-    loaded = _load(get_backend(), now)
+    backend = get_backend()
+    loaded = _load(backend, now)
     if loaded is None:
         return
     raw, stale_at = loaded
@@ -583,6 +585,11 @@ def _body() -> None:
     if stale_at is not None:
         st.warning("Não foi possível acessar a API. Estes são os últimos dados carregados com sucesso.",
                    icon=":material/cloud_off:")
+
+    if backend.uses_session_data():
+        st.info(SESSION_DATA_NOTICE, icon=":material/history_toggle_off:")
+    if any(d["received_at_source"] == "interface" for d in all_docs):
+        st.caption(f":material/schedule: {UI_TIME_NOTE}")
 
     if not all_docs:
         _empty_state()
