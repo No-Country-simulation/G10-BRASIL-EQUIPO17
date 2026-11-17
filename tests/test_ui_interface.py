@@ -214,7 +214,7 @@ def test_revisao_nao_implementada_e_sinalizada(monkeypatch):
 
 def test_texto_nao_implementado_tem_mensagem_clara(monkeypatch):
     api_falsa(monkeypatch, {("POST", "/v1/triagens/texto"): Resposta(501, {"detail": {"mensagem": "x"}})})
-    with pytest.raises(APIError, match="ainda não processa texto"):
+    with pytest.raises(APIError, match="processa texto colado"):
         MediFlowClient(BASE).submit_text("Texto sintético qualquer")
 
 
