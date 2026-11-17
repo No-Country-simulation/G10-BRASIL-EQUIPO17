@@ -67,8 +67,6 @@ with st.sidebar:
             if st.button("Verificar", icon=":material/refresh:", type="tertiary"):
                 check_api_health.clear()
                 st.rerun()
-        if mode:
-            st.caption(f"Modo: **{mode}**")
 
     st.text_input("Revisor", key="reviewer_name", placeholder="Nome do operador",
                   icon=":material/badge:", help="Registrado em cada decisão de auditoria.")

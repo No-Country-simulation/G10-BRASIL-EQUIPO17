@@ -32,7 +32,7 @@ $env:GEMINI_API_KEY = "<chave do Google AI Studio>"   # nunca commitar
 .\.venv\Scripts\python.exe -m streamlit run src/mediflow/ui/app.py
 ```
 
-A barra lateral mostra o modo da API conectada (Demonstração, Gemini local ou API principal).
+A barra lateral mostra se a API está conectada e avisa quando o modo é simulado (FakeOCI em memória).
 As duas composições locais **só processam as amostras oficiais** de `amostras/`
 (`DOC-001`, `DOC-002`, `DOC-005`) com o nome de arquivo original. O DOC-005 é imagem e
 exige o Tesseract OCR instalado no sistema.
