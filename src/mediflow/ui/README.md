@@ -72,15 +72,21 @@ canônica do contrato.
 | POST | `/v1/triagens/arquivos` | 1ª etapa do envio: multipart `documento_id`, `canal_origem`, `arquivo` → `ReciboArquivo` | implementado |
 | POST | `/v1/triagens/arquivos/{documento_id}/{arquivo_id}/processar` | 2ª etapa: → `ResultadoTriagem` | implementado nas apps locais |
 | POST | `/v1/triagens/texto` | aba "Colar texto" | API principal responde 501; ausente nas apps locais |
-| GET  | `/v1/triagens/{documento_id}` | página Resultado | **não existe** |
-| GET  | `/v1/triagens?status=` | Visão geral e Fila de auditoria | **não existe** (proposta da UI) |
-| POST | `/v1/triagens/{documento_id}/revisao` | decisão do auditor | **não existe** (proposta da UI) |
+| GET  | `/v1/triagens/{documento_id}` | página Resultado | implementado nas apps locais |
+| GET  | `/v1/triagens?status=` | Visão geral e Fila de auditoria | implementado nas apps locais |
+| POST | `/v1/triagens/{documento_id}/revisao` | decisão do auditor (`aprovar`, `corrigir`, `rejeitar`) | implementado nas apps locais |
 
 O `documento_id` vem do prefixo do nome do arquivo (`DOC-001_laudo....pdf` → `DOC-001`);
 sem prefixo válido, a UI gera `UI-AAAAMMDDhhmmss-XXXXXX`. Envia `canal_origem = "interface_streamlit"`.
 Antes do envio, valida extensão, assinatura binária, tamanho (até 10 MB) e páginas do PDF (até 10).
 
-**Enquanto não houver listagem/consulta na API**, a Visão geral, o Resultado e a Fila de
-auditoria usam os `ResultadoTriagem` que **a própria API devolveu nesta sessão** do navegador
-(nada é inventado na UI; tudo some ao recarregar a página). A decisão do auditor mostra um
-erro explicando que a API ainda não registra revisões.
+As três rotas de consulta e revisão ficam em `src/mediflow/api/triage_review.py` e só existem nas
+apps locais (`app_demo_local`, `app_gemini_local`). Elas devolvem o `ResultadoTriagem` v0.1 com dois
+campos aditivos: `recebido_em` e `revisao_humana` (null até a primeira decisão). Cada decisão é
+gravada como objeto imutável em `revisoes/{documento_id}/…json`; o resultado original nunca é
+alterado e as correções do auditor ficam só no registro da revisão. Como o armazenamento é a
+FakeOCI em memória, tudo some quando a API é reiniciada.
+
+Contra a API principal, que não tem essas rotas, a UI volta a usar os `ResultadoTriagem` que
+**a própria API devolveu nesta sessão** do navegador, e a decisão do auditor mostra um erro
+explicando que a API não registra revisões.

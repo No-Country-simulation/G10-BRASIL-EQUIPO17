@@ -32,7 +32,7 @@ ENDPOINTS = {
     "process": "/v1/triagens/arquivos/{doc_id}/{file_id}/processar",
     # Contrato v0.1; a API principal ainda responde 501 e as composições locais não a expõem.
     "triage_text": "/v1/triagens/texto",
-    # Ainda inexistentes na API (a UI usa o histórico da sessão enquanto isso).
+    # Só nas apps locais (api/triage_review.py); sem elas, a UI usa o histórico da sessão.
     "triage": "/v1/triagens/{doc_id}",              # GET ResultadoTriagem
     "triage_list": "/v1/triagens",                  # GET ?status= -> lista de ResultadoTriagem
     "review": "/v1/triagens/{doc_id}/revisao",      # POST decisão do auditor
@@ -45,6 +45,8 @@ STATUS_ENDPOINTS = {
     "/demo/estado": "Demonstração (fixtures)",
     "/health": "API principal",
 }
+# Modos que gravam na FakeOCI em memória (nada chega à Oracle Cloud): a barra lateral avisa.
+SIMULATED_MODES = {"Gemini local", "Demonstração (fixtures)"}
 
 # --------------------------------------------------------------------------- #
 # Ingestão

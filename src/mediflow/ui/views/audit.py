@@ -288,11 +288,15 @@ def _review_card(backend, doc: dict, next_id: str | None, now: pd.Timestamp) -> 
 
             if not reviewer:
                 st.caption(":material/badge: Informe seu nome em **Revisor**, na barra lateral, para decidir.")
+            else:
+                # Dentro do formulário o rótulo não acompanha as edições: o efeito fica explícito aqui.
+                st.caption(":material/edit_note: Sem alterações, registra uma **aprovação**; com algum campo "
+                           "alterado, registra uma **correção**. O resultado original não é modificado.")
             with st.container(horizontal=True):
                 reject = st.form_submit_button("Rejeitar", icon=":material/close:", disabled=not reviewer)
                 st.space("stretch")
-                approve = st.form_submit_button("Aprovar", type="primary", icon=":material/check:",
-                                                disabled=not reviewer)
+                approve = st.form_submit_button("Aprovar / salvar correções", type="primary",
+                                                icon=":material/check:", disabled=not reviewer)
 
         if not (approve or reject):
             return
@@ -330,7 +334,9 @@ def _review_card(backend, doc: dict, next_id: str | None, now: pd.Timestamp) -> 
         action = "rejeitar" if reject else "corrigir" if corrections else "aprovar"
 
         try:
-            backend.submit_review(doc["id"], action, reviewer, comment.strip(), corrections)
+            # A API só aceita correções junto com a ação "corrigir" (rejeitar descarta as edições).
+            backend.submit_review(doc["id"], action, reviewer, comment.strip(),
+                                  corrections if action == "corrigir" else None)
         except APIError as err:
             show_api_error(err, "A revisão não foi registrada")
             return
@@ -368,8 +374,8 @@ def render() -> None:
         if not err.not_implemented:
             show_api_error(err, "Não foi possível carregar a fila de auditoria")
             return
-        # A API ainda não lista triagens: usa o último documento enviado, se aguardar revisão.
-        st.caption(":material/info: A API ainda não lista triagens; mostrando o último documento enviado.")
+        # API sem listagem (ex.: a principal): usa o último documento enviado, se aguardar revisão.
+        st.caption(":material/info: Esta API não lista triagens; mostrando o último documento enviado.")
         last = st.session_state.get("last_result")
         doc = normalize_document(last) if last else None
         queue = ([{**doc, "ts": parse_ts(doc["received_at"])}]

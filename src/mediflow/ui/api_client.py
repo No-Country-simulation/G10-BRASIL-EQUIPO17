@@ -126,6 +126,7 @@ class MediFlowClient:
                 403: "A API recusou o acesso (confira as variáveis MEDIFLOW_* do servidor)",
                 404: "Recurso não encontrado na API",
                 405: "A API ainda não oferece esta operação",
+                409: "A API recusou a operação no estado atual do documento",
                 413: "Arquivo grande demais para a API",
                 415: "Formato de arquivo não suportado pela API",
                 422: "A API rejeitou os dados enviados (validação do contrato)",
@@ -216,7 +217,7 @@ class MediFlowClient:
 
     def submit_review(self, doc_id: str, action: str, reviewer: str,
                       comment: str = "", corrections: dict | None = None) -> dict:
-        """Decisão humana (rota proposta pela UI). `corrections` usa os nomes de campos do contrato."""
+        """Decisão humana (api/triage_review.py). `corrections` usa os nomes de campos do contrato."""
         payload = {
             "acao": action,                # "aprovar" | "corrigir" | "rejeitar"
             "revisor": reviewer,
@@ -227,7 +228,7 @@ class MediFlowClient:
             return _remember(self._request("POST", "review", path_params={"doc_id": doc_id}, json=payload))
         except APIError as err:
             if err.not_implemented:
-                raise APIError("A API ainda não registra revisões humanas. A decisão não foi gravada.",
+                raise APIError("Esta API não registra revisões humanas. A decisão não foi gravada.",
                                status_code=err.status_code, detail=err.detail) from err
             raise
 

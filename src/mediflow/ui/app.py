@@ -16,7 +16,7 @@ from pathlib import Path
 
 from mediflow.ui import navigation
 from mediflow.ui.api_client import check_api_health
-from mediflow.ui.config import API_BASE_URL
+from mediflow.ui.config import API_BASE_URL, SIMULATED_MODES
 from mediflow.ui.views import audit, dashboard, result, upload
 
 ASSETS = Path(__file__).parent / "assets"
@@ -58,17 +58,25 @@ page = st.navigation({
 with st.sidebar:
     with st.container(border=True):
         st.text_input("URL da API", key="api_url", help="Endereço do servidor FastAPI.")
+        mode = check_api_health(st.session_state["api_url"])
         with st.container(horizontal=True, vertical_alignment="center"):
-            if mode := check_api_health(st.session_state["api_url"]):
-                st.badge(f"API conectada · {mode}", icon=":material/cloud_done:", color="green")
+            if mode:
+                st.badge("API conectada", icon=":material/cloud_done:", color="green")
             else:
                 st.badge("API indisponível", icon=":material/cloud_off:", color="red")
             if st.button("Verificar", icon=":material/refresh:", type="tertiary"):
                 check_api_health.clear()
                 st.rerun()
+        if mode:
+            st.caption(f"Modo: **{mode}**")
 
     st.text_input("Revisor", key="reviewer_name", placeholder="Nome do operador",
                   icon=":material/badge:", help="Registrado em cada decisão de auditoria.")
     st.caption(":material/shield: As sugestões da IA requerem validação clínica.")
+
+    # Aviso permanente: nas APIs locais, "armazenamento confirmado" é só a FakeOCI em memória.
+    if mode in SIMULATED_MODES:
+        st.warning("**Simulação:** dados só em memória, sem gravação na Oracle Cloud.",
+                   icon=":material/science:")
 
 page.run()

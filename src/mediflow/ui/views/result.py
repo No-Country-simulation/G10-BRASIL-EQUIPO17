@@ -172,6 +172,12 @@ def _kpis(doc: dict) -> None:
                           delta_color="inverse" if low else "normal", delta_arrow="off",
                           help="Heurística de completude e consistência, não calibrada.")
 
+    # Regra principal à vista: é ela que explica a prioridade e o destino acima.
+    main_rule = next((r for r in doc["evidence"]["rules_fired"] if r["main"]), None)
+    if main_rule:
+        review = " · requer revisão humana" if doc["requires_review"] else ""
+        st.caption(f":material/rule: Regra principal **{main_rule['id']}** — {main_rule['name']}{review}")
+
 
 def _flags(doc: dict) -> None:
     if not doc["flags"]:
@@ -371,6 +377,10 @@ def _trace_tab(doc: dict) -> None:
     storage = tr["storage"]
     status = storage.get("status") or "pendente"
     color, label = _STORAGE.get(status, ("gray", status))
+    # As APIs locais confirmam a gravação na FakeOCI em memória: não é a Oracle Cloud.
+    simulated = str(storage.get("bucket") or "").upper().startswith("FAKEOCI")
+    if simulated and status == "confirmado":
+        color, label = "orange", "Simulado · em memória"
 
     left, right = st.columns(2)
     with left.container(border=True, height="stretch", key="card_trace_input"):
@@ -387,7 +397,9 @@ def _trace_tab(doc: dict) -> None:
         st.code(tr["sha256"] or "não apurado", language=None)
     with right.container(border=True, height="stretch", key="card_trace_storage"):
         with st.container(horizontal=True, vertical_alignment="center"):
-            _card_title("Armazenamento OCI", "Original, resultado e histórico")
+            _card_title("Armazenamento OCI",
+                        "FakeOCI: nada foi gravado na Oracle Cloud" if simulated
+                        else "Original, resultado e histórico")
             st.badge(label, color=color)
         if status == "confirmado":
             _field("Bucket", storage.get("bucket"))
@@ -405,6 +417,8 @@ def _trace_tab(doc: dict) -> None:
                 "Quando": _fmt_datetime(parse_ts(e["timestamp"])) if e["timestamp"] else "—",
                 "Evento": e["code"], "Descrição": e["description"],
             } for e in tr["events"]])
+            if not any(e["timestamp"] for e in tr["events"]):
+                df = df.drop(columns="Quando")  # o motor não data os eventos: evita uma coluna só de "—"
             st.dataframe(df, hide_index=True, alt="Eventos de processamento")
         else:
             st.caption("A API não registrou eventos para este documento.")

@@ -25,6 +25,7 @@ from mediflow.api.triage_processing import (
     obter_servico_triagem,
     router as router_processamento,
 )
+from mediflow.api.triage_review import router as router_revisao
 from mediflow.api.uploads import (
     _ler_manifesto,
     armazenamento,
@@ -140,6 +141,7 @@ app = FastAPI(
 )
 app.include_router(router_uploads)
 app.include_router(router_processamento)
+app.include_router(router_revisao)
 app.dependency_overrides[armazenamento] = fornecer_storage_fakeoci
 app.dependency_overrides[obter_servico_triagem] = fornecer_servico_gemini
 

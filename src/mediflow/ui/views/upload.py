@@ -20,6 +20,8 @@ _MODES = {"file": ":material/upload_file: Arquivo", "text": ":material/notes: Te
 # (e a mensagem de erro exata, em português) seja feita aqui e não pelo Streamlit.
 _UPLOAD_HARD_LIMIT_MB = 200
 _UPLOAD_NONCE = "_upload_nonce"  # muda a key do widget para o esvaziar ("Remover")
+# Origem do último resultado ("file:<nome>:<tamanho>" ou "text"); None esconde o resumo.
+_JUST_PROCESSED = "just_processed"
 
 # Modo texto: chaves de sessão, mínimo para parecer um documento e pistas do tipo de documento.
 _TEXT_KEY, _TEXT_READ = "doc_text", "_doc_text_read"
@@ -57,6 +59,12 @@ def _uploader_key() -> str:
 
 def _reset_upload() -> None:
     st.session_state[_UPLOAD_NONCE] = st.session_state.get(_UPLOAD_NONCE, 0) + 1
+    st.session_state[_JUST_PROCESSED] = None  # o resumo do arquivo anterior sai junto
+
+
+def _file_source(uploaded) -> str:
+    """Identifica o arquivo escolhido, para só mostrar o resumo do documento que o gerou."""
+    return f"file:{uploaded.name}:{uploaded.size}"
 
 
 def _format_mb(size_bytes: int) -> str:
@@ -317,23 +325,25 @@ def _behaviour() -> None:
 # --------------------------------------------------------------------------- #
 # Estados e processamento
 # --------------------------------------------------------------------------- #
-def _process(send_fn, *args) -> None:
-    """Envia para o back-end com feedback de progresso e guarda o resultado."""
+def _process(source: str, send_fn, *args) -> bool:
+    """Envia para o back-end com feedback de progresso e guarda o resultado. True se deu certo."""
     with st.status("Processando documento…", expanded=True) as status:
         st.write(":material/cloud_upload: Enviando para a API MediFlow…")
         try:
             raw = send_fn(*args)
         except APIError as err:
-            status.update(label="Falha no processamento", state="error")
+            # Fica aberto: o motivo da falha tem de ser visível sem clicar.
+            status.update(label="Falha no processamento", state="error", expanded=True)
             show_api_error(err, "O documento não foi processado")
-            return
+            return False
         st.write(":material/psychology: Extração, regras e roteamento concluídos.")
         status.update(label="Documento processado", state="complete", expanded=False)
 
     doc = normalize_document(raw)
     st.session_state["selected_doc_id"] = doc["id"]
     st.session_state["last_result"] = raw  # útil se a API não expuser GET /documents/{id}
-    st.session_state["just_processed"] = doc["id"]
+    st.session_state[_JUST_PROCESSED] = source
+    return True
 
 
 def _preview(uploaded) -> None:
@@ -353,7 +363,7 @@ def _upload_error(title: str, reason: str) -> None:
     st.button("Escolher outro arquivo", icon=":material/restart_alt:", on_click=_reset_upload)
 
 
-def _upload_success(uploaded) -> None:
+def _upload_success(uploaded, processed: bool = False) -> None:
     """Ficheiro pronto: check verde, miniatura (imagem) ou ícone do tipo, nome e tamanho."""
     ext = Path(uploaded.name).suffix.lower().lstrip(".")
     with st.container(horizontal=True, vertical_alignment="center", gap="medium", key="upload_ok"):
@@ -366,25 +376,26 @@ def _upload_success(uploaded) -> None:
         with st.container(gap=None, width="stretch"):
             st.markdown(f"**{uploaded.name}**")
             st.caption(f"{ext.upper()} · {_format_mb(uploaded.size)}")
-        st.badge("Pronto para processar", icon=":material/check_circle:", color="green")
+        st.badge("Processado" if processed else "Pronto para processar",
+                 icon=":material/task_alt:" if processed else ":material/check_circle:", color="green")
         st.button("Remover", icon=":material/close:", type="tertiary", on_click=_reset_upload)
 
 
-def _show_last_result() -> None:
-    """Resumo do último documento processado, com atalho para o detalhe."""
+def _show_last_result(source: str) -> None:
+    """Resumo do último documento processado (só se veio de `source`), com atalho para o detalhe."""
     raw = st.session_state.get("last_result")
-    if not raw or st.session_state.get("just_processed") is None:
+    if not raw or st.session_state.get(_JUST_PROCESSED) != source:
         return
     doc = normalize_document(raw)
     with st.container(border=True):
-        st.subheader(f"Documento {doc['id']} processado", icon=":material/check_circle:")
+        st.subheader(f"Documento {doc['id']} processado", icon=":material/check_circle:", anchor=False)
         badge_row(priority_badge(doc["priority"]))
         with st.container(horizontal=True):
             st.metric("Paciente", doc["extracted"]["patient_name"], icon=":material/person:", border=True)
             st.metric("Tipo", doc["extracted"]["document_type"], icon=":material/description:", border=True)
             st.metric("Destino", doc["destination"], icon=":material/alt_route:", border=True)
         if st.button("Ver análise completa", type="primary", icon=":material/arrow_forward:"):
-            st.session_state["just_processed"] = None
+            st.session_state[_JUST_PROCESSED] = None
             go_to("result", doc_id=doc["id"])
 
 
@@ -397,8 +408,6 @@ def _file_mode(backend) -> None:
         label_visibility="collapsed",
     )
     if uploaded is None:
-        st.caption(":material/info: As APIs locais de demonstração e de homologação Gemini só processam as "
-                   "amostras oficiais de `amostras/` (DOC-001, DOC-002 e DOC-005), com o nome original do arquivo.")
         return
 
     # Com um ficheiro escolhido, o cartão de sucesso/erro ocupa o lugar da zona de envio
@@ -408,13 +417,17 @@ def _file_mode(backend) -> None:
     if problem:
         _upload_error(*problem)
         return
-    _upload_success(uploaded)
+    source = _file_source(uploaded)
+    _upload_success(uploaded, processed=st.session_state.get(_JUST_PROCESSED) == source)
+    # O resumo fica logo abaixo do arquivo, acima da pré-visualização, para não sair da tela.
+    _show_last_result(source)
     left, right = st.columns([2, 3], gap="large")
     with left:
         if st.button("Processar documento", type="primary",
                      key="process_file", width="stretch"):
-            _process(backend.upload_document, uploaded.name, uploaded.getvalue(),
-                     uploaded.type or "application/octet-stream")
+            if _process(source, backend.upload_document, uploaded.name, uploaded.getvalue(),
+                        uploaded.type or "application/octet-stream"):
+                st.rerun()  # redesenha com o resumo no topo
     with right:
         _preview(uploaded)
 
@@ -477,7 +490,8 @@ def _text_mode(backend) -> None:
         clicked = st.button("Processar documento", type="primary",
                             disabled=not valid, key="process_text")
     if clicked:
-        _process(backend.submit_text, text.strip())
+        _process("text", backend.submit_text, text.strip())
+    _show_last_result("text")
 
 
 def render() -> None:
@@ -495,5 +509,4 @@ def render() -> None:
         else:
             _text_mode(backend)
 
-    _show_last_result()
     _behaviour()  # no fim da página: o elemento do script não empurra o resto do conteúdo

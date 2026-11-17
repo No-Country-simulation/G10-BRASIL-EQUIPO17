@@ -71,3 +71,7 @@ maxUploadSize = 200  # a página valida o limite real (MAX_UPLOAD_MB) com mensag
 
 [browser]
 gatherUsageStats = false
+
+[client]
+# Esconde "Deploy" e o menu de desenvolvedor (atalhos como "c" = limpar cache) na demonstração.
+toolbarMode = "viewer"

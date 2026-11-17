@@ -42,7 +42,7 @@ O **MediFlow** é um protótipo educacional para receber documentos de saúde **
 | Persistência de originais, manifestos, históricos e resultados | Adaptador implementado; **OCI real homologada isoladamente** no cenário H09; FakeOCI usada no fluxo demonstrativo |
 | Demonstração dos três cenários | **3/3 aprovados com simulação** no critério H14 |
 | Interface gráfica (Streamlit) | **Integrada às APIs locais** (envio, processamento, resultado e painel da sessão); ver [`src/mediflow/ui/README.md`](src/mediflow/ui/README.md) |
-| Revisão humana operacional | **Ainda não integrada**: a API não tem rota de revisão nem listagem de triagens |
+| Revisão humana operacional | **Implementada nas APIs locais** (listagem, consulta e registro de aprovar/corrigir/rejeitar, gravados na FakeOCI); sem autenticação do revisor |
 | Deploy público, autenticação e uso clínico | **Não implementados ou autorizados** |
 
 **Interpretação:** código disponível, CI verde e testes com fakes **não** equivalem a homologação de serviços externos nem a um MVP clínico em produção. O status da branch `main` pode ser anterior ao da `develop`; consulte o [histórico de integração](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pulls) antes de promover uma versão.
@@ -135,7 +135,7 @@ O LangGraph usa os nós `validar_contratos`, `avaliar_regras`, `rota_R001` a `ro
 | **R005** | Documento de rotina documentalmente completo | `prontuario_documental` | Não |
 | **R006** | Nenhuma condição anterior atendida | `auditoria_humana` | Sim |
 
-A revisão humana aqui é **um estado de encaminhamento**, ainda não um fluxo visual de aprovação/rejeição implementado.
+A revisão humana começa como **um estado de encaminhamento**. Nas APIs locais, a Fila de auditoria da interface registra a decisão (aprovar, corrigir ou rejeitar) em `POST /v1/triagens/{documento_id}/revisao`, sem alterar o resultado original.
 
 ## Cenários de demonstração
 
@@ -380,7 +380,7 @@ git diff --check
 - **Credenciais:** não versionar `.env`, `GEMINI_API_KEY`, `~/.oci/config`, PEM, tokens, OCIDs sensíveis ou logs com segredos. Usar identidades OCI individuais e menor privilégio.
 - **Uso de serviços externos:** chamadas Gemini e gravações OCI só devem ocorrer em ambiente controlado, com autorização explícita e análise de quota, custo, retenção e elegibilidade Always Free. Os testes offline não consomem esses serviços.
 - **Inferência e confiança:** não gerar ou exibir precisão clínica calibrada inexistente; preservar valores ausentes ou ilegíveis e evidências verificáveis.
-- **Revisão humana:** as filas administrativas são estados do JSON; não há workflow de aprovação clínica nem notificações em tempo real integradas.
+- **Revisão humana:** a decisão do auditor é registrada nas APIs locais, mas o nome do revisor é declarativo (sem autenticação) e não há notificações em tempo real. Não é um workflow de aprovação clínica.
 - **Persistência demonstrativa:** FakeOCI é reiniciada a cada processo; múltiplos workers e recarregamento automático podem perder ou dividir os dados.
 - **Integridade e falhas:** há verificações de hash, associação documento/arquivo e erros sanitizados; isso não substitui auditoria de segurança, antivírus, monitoramento operacional, retenção, autorização e política de dados.
 
