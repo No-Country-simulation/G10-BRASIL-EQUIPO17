@@ -113,6 +113,9 @@ def persistir_resultado(
             "documento_id": doc,
             "arquivo_id": arq,
             "execucao_id": identificador,
+            "chave_indice_status": chave_indice_status(
+                resultado, arq, identificador
+            ),
             "registrado_em_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "status_resultado": resultado.status,
             "eventos": [evento.model_dump(mode="json") for evento in resultado.eventos],
