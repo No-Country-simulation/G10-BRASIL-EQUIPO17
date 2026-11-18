@@ -100,3 +100,16 @@ Contra uma API sem essas rotas (a principal ou a H16), a UI volta a usar os `Res
   rejeitar desabilitados. Documentos, filtros, prioridades e evidências continuam visíveis.
 
 Os testes offline da interface ficam em `tests/test_ui_interface.py`.
+
+
+### Isolamento de resultados por API
+
+Os resultados temporarios da sessao sao separados pela URL
+do backend. Trocar de API nao mistura documentos entre servidores.
+
+O ultimo resultado utilizado nas telas tambem possui vinculo
+com a URL de origem. Resultados antigos sem origem identificada
+nao sao reutilizados pelo novo mecanismo.
+
+Este armazenamento continua restrito a sessao Streamlit.
+Nao representa historico permanente nem autenticacao de usuarios.
