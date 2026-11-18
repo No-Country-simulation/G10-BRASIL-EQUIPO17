@@ -18,6 +18,7 @@ from mediflow.api.app_demo_local import (
     _AMOSTRAS,
     _RAIZ,
     amostra_texto_oficial,
+    fornecer_validador_texto_demo,
     cliente_fakeoci,
     storage_demo,
 )
@@ -27,7 +28,7 @@ from mediflow.api.triage_processing import (
     router as router_processamento,
 )
 from mediflow.api.triage_review import router as router_revisao
-from mediflow.api.triage_text import obter_fabrica_servico_texto, router as router_texto
+from mediflow.api.triage_text import obter_fabrica_servico_texto, obter_validador_texto, router as router_texto
 from mediflow.api.uploads import (
     _ler_manifesto,
     armazenamento,
@@ -161,6 +162,7 @@ app.dependency_overrides[armazenamento] = fornecer_storage_fakeoci
 app.dependency_overrides[obter_servico_triagem] = fornecer_servico_gemini
 app.include_router(router_texto)
 app.dependency_overrides[obter_fabrica_servico_texto] = fornecer_fabrica_texto_gemini
+app.dependency_overrides[obter_validador_texto] = fornecer_validador_texto_demo
 
 
 @app.middleware("http")

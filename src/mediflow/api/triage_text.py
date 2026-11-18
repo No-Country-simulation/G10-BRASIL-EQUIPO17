@@ -28,6 +28,18 @@ from mediflow_contracts.models import EntradaTexto, ResultadoTriagem
 router = APIRouter(prefix="/v1/triagens", tags=["processamento-documental"])
 
 FabricaServicoTexto = Callable[[OCIStorage, ReciboArquivo], ServicoTriagem]
+ValidadorTexto = Callable[[bytes], bool]
+
+
+def obter_validador_texto() -> ValidadorTexto:
+    """Nenhum texto e autorizado sem politica local explicita."""
+    raise HTTPException(
+        status_code=503,
+        detail={
+            "codigo": "VALIDACAO_TEXTO_NAO_CONFIGURADA",
+            "mensagem": "Validacao de texto indisponivel.",
+        },
+    )
 
 
 def obter_fabrica_servico_texto() -> FabricaServicoTexto:
@@ -59,6 +71,7 @@ def triar_texto(
     entrada: EntradaTexto,
     _: Annotated[None, Depends(somente_processamento_local)],
     storage: Annotated[OCIStorage, Depends(armazenamento)],
+    validador: Annotated[ValidadorTexto, Depends(obter_validador_texto)],
     fabrica: Annotated[FabricaServicoTexto, Depends(obter_fabrica_servico_texto)],
 ) -> ResultadoTriagem:
     if not entrada.canal_origem.strip() or not entrada.documento_texto.strip():
@@ -68,6 +81,27 @@ def triar_texto(
     dados = normalizar_texto(entrada.documento_texto).encode("utf-8")
     if len(dados) > MAX_FILE_BYTES:
         raise HTTPException(413, detail={"codigo": "TEXTO_GRANDE", "mensagem": "Limite de 10 MiB excedido."})
+
+    # Validar ANTES de gravar original ou manifesto.
+    try:
+        autorizado = validador(dados)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "codigo": "VALIDACAO_TEXTO_INDISPONIVEL",
+                "mensagem": "Nao foi possivel validar o texto.",
+            },
+        ) from exc
+
+    if autorizado is not True:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "codigo": "TEXTO_NAO_AUTORIZADO",
+                "mensagem": "Somente as amostras sinteticas oficiais sao aceitas.",
+            },
+        )
 
     nome = f"{entrada.documento_id}.txt"
     recibo = registrar_original(

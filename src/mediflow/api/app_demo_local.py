@@ -25,6 +25,7 @@ from mediflow.api.triage_review import router as router_revisao
 from mediflow.api.triage_text import (
     normalizar_texto,
     obter_fabrica_servico_texto,
+    obter_validador_texto,
     router as router_texto,
 )
 from mediflow.api.uploads import (
@@ -51,23 +52,29 @@ _AMOSTRAS_TEXTO = {
 _MODO = "extracao-fixture;armazenamento-fakeoci-memoria"
 
 
-def amostra_texto_oficial(documento: DocumentoParaExtracao) -> str | None:
-    """Cenário oficial cujo texto é idêntico ao enviado (após normalizar quebras).
-
-    O texto colado recebe um documento_id novo, então a amostra é reconhecida
-    pelo conteúdo, nunca pelo identificador.
-    """
-    if documento.mime_type != "text/plain":
-        return None
+def _cenario_texto_oficial(dados: bytes) -> str | None:
+    """Reconhece bytes sinteticos, sem OCI nem Gemini."""
     try:
-        enviado = normalizar_texto(documento.conteudo.decode("utf-8"))
+        enviado = normalizar_texto(dados.decode("utf-8"))
     except UnicodeDecodeError:
         return None
+
     for cenario, relativo in _AMOSTRAS_TEXTO.items():
-        oficial = normalizar_texto((_RAIZ / relativo).read_text(encoding="utf-8"))
+        oficial = normalizar_texto(
+            (_RAIZ / relativo).read_text(encoding="utf-8")
+        )
         if enviado == oficial:
             return cenario
+
     return None
+
+
+def amostra_texto_oficial(
+    documento: DocumentoParaExtracao,
+) -> str | None:
+    if documento.mime_type != "text/plain":
+        return None
+    return _cenario_texto_oficial(documento.conteudo)
 
 
 class ObjetoNaoEncontrado(LookupError):
@@ -163,6 +170,10 @@ def fornecer_servico_demo(
     )
 
 
+def fornecer_validador_texto_demo():
+    return lambda dados: _cenario_texto_oficial(dados) is not None
+
+
 def fornecer_fabrica_texto_demo():
     return lambda storage, recibo: montar_servico_i1_i3_i4_i5(
         storage=storage, recibo=recibo, extrator=ExtratorFixtureSintetica(),
@@ -185,6 +196,7 @@ app.include_router(router_texto)
 app.dependency_overrides[armazenamento] = fornecer_storage_demo
 app.dependency_overrides[obter_servico_triagem] = fornecer_servico_demo
 app.dependency_overrides[obter_fabrica_servico_texto] = fornecer_fabrica_texto_demo
+app.dependency_overrides[obter_validador_texto] = fornecer_validador_texto_demo
 
 
 @app.middleware("http")
