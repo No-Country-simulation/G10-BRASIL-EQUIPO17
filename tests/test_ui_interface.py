@@ -31,6 +31,7 @@ def exemplo(doc_id: str) -> dict:
 @pytest.fixture(autouse=True)
 def sessao_limpa():
     st.session_state.clear()
+    st.session_state["api_url"] = BASE
     yield
     st.session_state.clear()
 
@@ -239,3 +240,136 @@ def test_fila_de_auditoria_com_resultados_da_sessao(monkeypatch):
 def test_remember_nao_sobrescreve_horario_ja_registrado():
     bruto = {**exemplo("DOC-001"), UI_RECEIVED_KEY: "2026-01-01T00:00:00Z"}
     assert api_client._remember(bruto)[UI_RECEIVED_KEY] == "2026-01-01T00:00:00Z"
+
+
+# ---------------------------------------------------------------------------
+# Isolamento entre diferentes URLs de API
+# ---------------------------------------------------------------------------
+def test_resultados_separados_por_api(monkeypatch):
+    api_falsa(
+        monkeypatch,
+        {
+            ("GET", "/v1/triagens"): Resposta(
+                501, {"detail": {"mensagem": "Nao implementado"}}
+            )
+        },
+    )
+
+    outra = "http://api-b.local"
+
+    st.session_state["api_url"] = BASE
+    api_client._remember(exemplo("DOC-001"))
+
+    st.session_state["api_url"] = outra
+    api_client._remember(exemplo("DOC-005"))
+
+    ids_a = [
+        d["documento_id"]
+        for d in MediFlowClient(BASE).list_documents()
+    ]
+    ids_b = [
+        d["documento_id"]
+        for d in MediFlowClient(outra).list_documents()
+    ]
+
+    assert ids_a == ["DOC-001"]
+    assert ids_b == ["DOC-005"]
+
+
+def test_get_document_nao_usa_resultado_de_outra_api(monkeypatch):
+    api_falsa(
+        monkeypatch,
+        {
+            ("GET", "/v1/triagens/DOC-001"): Resposta(
+                404, {"detail": "Not Found"}
+            )
+        },
+    )
+
+    st.session_state["api_url"] = BASE
+    api_client._remember(exemplo("DOC-001"))
+
+    outra = MediFlowClient("http://api-b.local")
+
+    with pytest.raises(APIError):
+        outra.get_document("DOC-001")
+
+    assert (
+        MediFlowClient(BASE).get_document("DOC-001")["documento_id"]
+        == "DOC-001"
+    )
+
+
+def test_mesmo_documento_id_em_apis_diferentes(monkeypatch):
+    api_falsa(
+        monkeypatch,
+        {
+            ("GET", "/v1/triagens"): Resposta(
+                501, {"detail": {"mensagem": "Nao implementado"}}
+            )
+        },
+    )
+
+    a = exemplo("DOC-001")
+    a["entrada"]["canal_origem"] = "origem-a"
+
+    b = exemplo("DOC-001")
+    b["entrada"]["canal_origem"] = "origem-b"
+
+    st.session_state["api_url"] = BASE
+    api_client._remember(a)
+
+    st.session_state["api_url"] = "http://api-b.local"
+    api_client._remember(b)
+
+    da = MediFlowClient(BASE).list_documents()[0]
+    db = MediFlowClient("http://api-b.local").list_documents()[0]
+
+    assert da["entrada"]["canal_origem"] == "origem-a"
+    assert db["entrada"]["canal_origem"] == "origem-b"
+
+
+def test_cliente_grava_na_url_da_instancia(monkeypatch):
+    api_falsa(
+        monkeypatch,
+        {
+            ("POST", "/v1/triagens/texto"): Resposta(
+                200, exemplo("DOC-005")
+            ),
+            ("GET", "/v1/triagens"): Resposta(
+                501, {"detail": {"mensagem": "Nao implementado"}}
+            ),
+        },
+    )
+
+    st.session_state["api_url"] = BASE
+
+    outra = "http://api-b.local"
+    MediFlowClient(outra).submit_text("Texto sintetico de teste")
+
+    assert MediFlowClient(BASE).list_documents() == []
+
+    docs = MediFlowClient(outra).list_documents()
+    assert [d["documento_id"] for d in docs] == ["DOC-005"]
+
+
+def test_ultimo_resultado_respeita_origem_da_api():
+    st.session_state["api_url"] = BASE
+    api_client.set_last_result(exemplo("DOC-001"))
+
+    assert (
+        api_client.get_last_result()["documento_id"]
+        == "DOC-001"
+    )
+
+    st.session_state["api_url"] = "http://api-b.local"
+    assert api_client.get_last_result() is None
+
+    api_client.set_last_result(exemplo("DOC-005"))
+    assert (
+        api_client.get_last_result()["documento_id"]
+        == "DOC-005"
+    )
+
+    st.session_state["api_url"] = BASE
+    assert api_client.get_last_result() is None

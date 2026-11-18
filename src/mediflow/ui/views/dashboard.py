@@ -14,7 +14,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from mediflow.ui.api_client import APIError, get_backend
+from mediflow.ui.api_client import APIError, get_backend, get_last_result
 from mediflow.ui.components import (
     SESSION_DATA_NOTICE, UI_TIME_NOTE, card_styles, mask_name, parse_ts, priority_label,
     received_label, show_api_error, status_label, surface,
@@ -97,7 +97,7 @@ def _load(backend, now: pd.Timestamp) -> tuple[list[dict], pd.Timestamp | None] 
         if cached is None and err.not_implemented:
             # A API ainda não lista triagens: mostra só o último documento enviado, se houver.
             st.caption(":material/info: A API ainda não lista triagens; mostrando o último documento enviado.")
-            last = st.session_state.get("last_result")
+            last = get_last_result()
             return ([last] if last else []), None
         if cached is None:
             show_api_error(err, "Não foi possível carregar o dashboard")

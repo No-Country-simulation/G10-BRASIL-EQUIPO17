@@ -12,7 +12,7 @@ from functools import partial
 import pandas as pd
 import streamlit as st
 
-from mediflow.ui.api_client import APIError, get_backend
+from mediflow.ui.api_client import APIError, get_backend, get_last_result
 from mediflow.ui.components import (
     REVIEW_UNAVAILABLE_NOTICE, SESSION_DATA_NOTICE, badge_row, card_styles, flag_label,
     format_confidence, mask_name, parse_ts, priority_badge, priority_label, received_label,
@@ -381,7 +381,7 @@ def render() -> None:
             return
         # API sem listagem (ex.: a principal): usa o último documento enviado, se aguardar revisão.
         st.caption(":material/info: Esta API não lista triagens; mostrando o último documento enviado.")
-        last = st.session_state.get("last_result")
+        last = get_last_result()
         doc = normalize_document(last) if last else None
         queue = ([{**doc, "ts": parse_ts(doc["received_at"])}]
                  if doc and doc["status"] == "pending_review" and not doc["review"] else [])
