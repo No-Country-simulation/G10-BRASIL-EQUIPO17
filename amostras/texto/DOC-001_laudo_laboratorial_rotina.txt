@@ -1,0 +1,19 @@
+Dados inteiramente inventados | Sem validade clínica ou administrativa
+1
+Laudo Laboratorial
+DOCUMENTO FICTÍCIO - APENAS PARA TESTES DO MEDIFLOW
+Instituição
+Laboratório Horizonte - unidade fictícia | Emissão: 18/10/2026 | Documento: DOC-001
+Paciente
+Marina Lacerda Fictícia | 38 anos | ID interno: PF-0001
+Profissional solicitante
+Dra. Elisa Monteiro Exemplo | CRM-XX 000001 (identificador fictício)
+Exame realizado
+Hemograma completo - material: sangue total
+Resultados demonstrativos
+Hemoglobina: 13,4 g/dL
+Leucócitos: 6.800 /mm3
+Plaquetas: 245.000 /mm3
+Os valores acima são sintéticos e não devem ser interpretados para decisão clínica.
+Conclusão
+Resultados descritos para acompanhamento de rotina. Documento sem declaração de urgência.

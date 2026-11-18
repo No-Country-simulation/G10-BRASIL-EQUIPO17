@@ -64,7 +64,7 @@ class ReciboArquivo(Estrito):
 class ResumoArquivo(Estrito):
     arquivo_id: str = Field(pattern=r"^[a-f0-9]{32}$")
     nome_original: str
-    tipo_entrada: Literal["pdf", "png", "jpeg"]
+    tipo_entrada: Literal["pdf", "png", "jpeg", "texto"]
     tamanho_bytes: int = Field(ge=1, le=MAX_FILE_BYTES)
     sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     registrado_em_utc: str
@@ -168,6 +168,30 @@ def receber_documento(
 
     tipo_entrada, mime, nome_seguro = verificar_documento(arquivo.filename, arquivo.content_type, bytes(dados))
     extensao = ".jpeg" if nome_seguro.lower().endswith(".jpeg") else os.path.splitext(nome_seguro)[1].lower()
+    return registrar_original(
+        storage,
+        documento_id=documento_id,
+        canal_origem=canal_origem,
+        dados=bytes(dados),
+        nome_seguro=nome_seguro,
+        tipo_entrada=tipo_entrada,
+        mime=mime,
+        extensao=extensao,
+    )
+
+
+def registrar_original(
+    storage: OCIStorage,
+    *,
+    documento_id: str,
+    canal_origem: str,
+    dados: bytes,
+    nome_seguro: str,
+    tipo_entrada: str,
+    mime: str,
+    extensao: str,
+) -> ReciboArquivo:
+    """Grava original e manifesto já validados; compartilhado por arquivo e texto."""
     arquivo_id = uuid.uuid4().hex
     chave = f"originais/{documento_id}/{arquivo_id}{extensao}"
     chave_metadados = f"metadados/{documento_id}/{arquivo_id}.json"

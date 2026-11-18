@@ -10,7 +10,8 @@ import streamlit as st
 
 from mediflow.ui.api_client import APIError, get_backend
 from mediflow.ui.components import badge_row, page_header, priority_badge, show_api_error
-from mediflow.ui.config import ACCEPTED_FILE_TYPES, FILE_SIGNATURES, MAX_PDF_PAGES, MAX_UPLOAD_MB
+from mediflow.ui.config import (ACCEPTED_FILE_TYPES, FILE_SIGNATURES, MAX_PDF_PAGES, MAX_UPLOAD_MB,
+                               SAMPLE_TEXTS, SAMPLE_TEXTS_DIR)
 from mediflow.ui.models import normalize_document
 from mediflow.ui.navigation import go_to
 
@@ -436,6 +437,23 @@ def _clear_text() -> None:
     st.session_state[_TEXT_KEY] = ""
 
 
+def _load_sample(filename: str) -> None:
+    """Coloca no campo o texto de uma amostra sintética oficial (callback: corre antes do widget)."""
+    st.session_state[_TEXT_KEY] = (SAMPLE_TEXTS_DIR / filename).read_text(encoding="utf-8").strip()
+
+
+def _sample_buttons() -> None:
+    """Atalhos para as amostras oficiais, as únicas que as APIs locais processam por texto."""
+    samples = {label: name for label, name in SAMPLE_TEXTS.items() if (SAMPLE_TEXTS_DIR / name).is_file()}
+    if not samples:
+        return
+    with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+        st.caption("Usar amostra sintética:", width="content")
+        for i, (label, name) in enumerate(samples.items()):
+            st.button(label, key=f"text_sample_{i}", type="secondary", icon=":material/article:",
+                      on_click=_load_sample, args=(name,))
+
+
 def _read_text(text: str) -> dict:
     """Leitura rápida do texto colado: tamanho e tipo provável de documento (por palavras-chave)."""
     words = len(text.split())
@@ -448,6 +466,7 @@ def _read_text(text: str) -> dict:
 
 def _text_mode(backend) -> None:
     st.subheader("Texto do documento", anchor=False)
+    _sample_buttons()
 
     text = st.text_area(
         "Conteúdo do documento",

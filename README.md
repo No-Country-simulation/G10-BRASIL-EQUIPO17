@@ -295,8 +295,8 @@ O projeto contém **três aplicações FastAPI distintas**. Elas não são inter
 
 | Aplicação | Inicialização | O que faz | Limitação |
 |---|---|---|---|
-| **API de desenvolvimento** | `mediflow.api.app:app` | Saúde, upload/consulta em OCI configurada, preview e rota isolada de extração Gemini | **Não** registra `/processar`; `POST /v1/triagens/texto` responde 501 |
-| **Demonstração local** | `mediflow.api.app_demo_local:app` | Upload + processamento dos três arquivos oficiais; RAG/regras/LangGraph reais locais | Extração por fixtures; FakeOCI em memória |
+| **API de desenvolvimento** | `mediflow.api.app:app` | Saúde, upload/consulta em OCI configurada, preview e rota isolada de extração Gemini | **Não** processa triagem; `POST /v1/triagens/texto` responde 501 aqui (use os apps locais) |
+| **Demonstração local** | `mediflow.api.app_demo_local:app` | Upload + processamento dos três arquivos oficiais **ou do texto deles**; RAG/regras/LangGraph reais locais | Extração por fixtures; FakeOCI em memória |
 | **Homologação Gemini local** | `mediflow.api.app_gemini_local:app` | Composição HTTP com extrator Gemini injetável | Gemini real bloqueado por padrão; FakeOCI; somente amostras oficiais |
 
 **Endpoints da demonstração (`app_demo_local`)**:
@@ -308,13 +308,24 @@ O projeto contém **três aplicações FastAPI distintas**. Elas não são inter
 | `GET` | `/v1/triagens/arquivos/{documento_id}/{arquivo_id}` | Consulta o recibo de upload, **não** o resultado de triagem |
 | `GET` | `/v1/triagens/arquivos/{documento_id}` | Lista arquivos com paginação (`limite`, `cursor`) |
 | `POST` | `/v1/triagens/arquivos/{documento_id}/{arquivo_id}/processar` | Devolve `ResultadoTriagem v0.1` |
+| `POST` | `/v1/triagens/texto` | Recebe `EntradaTexto` em JSON (`documento_id`, `canal_origem`, `documento_texto`), grava o texto como original `.txt` e devolve `ResultadoTriagem v0.1` |
 | `GET` | `/v1/triagens?status=` | Lista as triagens persistidas (filtro opcional por status do contrato) |
 | `GET` | `/v1/triagens/{documento_id}` | Consulta o último resultado, com `recebido_em` e `revisao_humana` |
 | `POST` | `/v1/triagens/{documento_id}/revisao` | Registra `aprovar`, `corrigir` ou `rejeitar`; o resultado original não é alterado |
 
 As três últimas rotas (revisão humana) também existem na homologação Gemini local e **não** são registradas na API de desenvolvimento.
 
-**Outras rotas:** na API de desenvolvimento, `GET /health` comprova apenas disponibilidade HTTP, `POST /v1/triagens/texto` continua intencionalmente não implementado (**501**) e `POST /v1/triagens/arquivos/{documento_id}/{arquivo_id}/extracao` usa o adaptador Gemini quando há OCI e credenciais configuradas. Na aplicação de homologação Gemini, `GET /gemini/estado` indica configuração/autorização, **não** sucesso da API externa; sem consentimento explícito, `/processar` retorna **503 `GEMINI_REAL_NAO_AUTORIZADO`**. Veja [documentação do modo controlado](docs/25_homologacao_gemini_local_fakeoci.md).
+**Triagem por texto:** a rota `POST /v1/triagens/texto` existe na demonstração local e na homologação Gemini local. O texto vira um original `.txt` (UTF-8, quebras normalizadas) com manifesto, e segue o mesmo pipeline do arquivo: extração, confirmação independente do alerta **no texto original**, RAG, regras/LangGraph e persistência. Como nos arquivos, **só são aceitas as amostras sintéticas oficiais**, aqui em [`amostras/texto/`](amostras/texto/) (texto extraído dos três originais), reconhecidas pelo conteúdo; outro texto é recusado **antes da gravação** com **422 `TEXTO_NAO_AUTORIZADO`**, sem ir ao Gemini. Exemplo (demonstração local):
+
+```powershell
+$texto = Get-Content amostras/texto/DOC-002_laudo_imagem_alerta.txt -Raw -Encoding utf8
+$corpo = @{ documento_id = "TXT-DOC-002"; canal_origem = "demo_texto"; documento_texto = $texto } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/v1/triagens/texto -ContentType "application/json; charset=utf-8" -Body ([Text.Encoding]::UTF8.GetBytes($corpo))
+```
+
+A aba **Texto livre** da interface Streamlit usa essa rota.
+
+**Outras rotas:** na API de desenvolvimento, `GET /health` comprova apenas disponibilidade HTTP, `POST /v1/triagens/texto` responde **501** (a triagem só existe nos apps locais) e `POST /v1/triagens/arquivos/{documento_id}/{arquivo_id}/extracao` usa o adaptador Gemini quando há OCI e credenciais configuradas. Na aplicação de homologação Gemini, `GET /gemini/estado` indica configuração/autorização, **não** sucesso da API externa; sem consentimento explícito, `/processar` retorna **503 `GEMINI_REAL_NAO_AUTORIZADO`**. Veja [documentação do modo controlado](docs/25_homologacao_gemini_local_fakeoci.md).
 
 **Limites atuais do upload:** PDF/PNG/JPEG, até **10 MiB** e PDFs com até **10 páginas**, incluindo verificações de extensão, MIME, assinatura e estrutura. Não há ingestão completa de textos/JSONs arbitrários na rota de processamento atual.
 
@@ -416,7 +427,7 @@ Já concluído nesta entrega: Gemini real no fluxo HTTP dos três cenários (H15
 3. **Coletar custo, latência por etapa e consumo de tokens** do Gemini real, que não foram registrados no H15.
 4. **Calibrar o indicador de qualidade** (hoje heurística v0 com pesos fixos) contra um conjunto rotulado maior, antes de tratá-lo como métrica de desempenho.
 5. **Completar os controles para um ambiente compartilhado ou público** — autenticação do revisor, autorização, retenção, idempotência, observabilidade, revisão de segurança e verificação dos limites Always Free — antes de considerar qualquer deploy.
-6. **Habilitar o processamento de texto colado**, hoje recusado pelas APIs (a interface já oferece a aba).
+6. **Ampliar a triagem por texto para textos sintéticos novos**, hoje limitada às três amostras oficiais para controlar custo e exposição do Gemini.
 
 ## Documentação e colaboração
 

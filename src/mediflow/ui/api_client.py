@@ -85,6 +85,13 @@ def _detail_message(detail: Any) -> str | None:
     return None
 
 
+def _error_code(detail: Any) -> str | None:
+    """Código estruturado do erro da API (`detail.codigo`), se houver."""
+    if isinstance(detail, dict):
+        return detail.get("codigo")
+    return None
+
+
 class MediFlowClient:
     """Cliente HTTP fino sobre a API FastAPI do MediFlow (contrato v0.1)."""
 
@@ -207,7 +214,12 @@ class MediFlowClient:
             return _remember(self._request("POST", "triage_text", json=payload))
         except APIError as err:
             if err.not_implemented:
-                raise APIError("A API atual ainda não processa texto colado. Envie o documento como arquivo.",
+                raise APIError("Esta API não processa texto colado. Inicie a demonstração local "
+                               "(app_demo_local) ou a homologação Gemini, ou envie o documento como arquivo.",
+                               status_code=err.status_code, detail=err.detail) from err
+            if err.status_code == 422 and _error_code(err.detail) == "TEXTO_NAO_AUTORIZADO":
+                raise APIError("O texto não foi aceito. Neste modo só são processados os textos das amostras "
+                               "sintéticas oficiais. Use um dos botões de amostra acima do campo.",
                                status_code=err.status_code, detail=err.detail) from err
             raise
 
