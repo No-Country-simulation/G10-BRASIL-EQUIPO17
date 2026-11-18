@@ -121,6 +121,30 @@ def test_ultima_revisao_prevalece(cliente):
     assert len([c for c in cliente_fakeoci.objetos if c.startswith("revisoes/DOC-002/")]) == 2
 
 
+def test_ultima_revisao_prevalece_com_relogio_parado(cliente, monkeypatch):
+    """No Windows o relogio repete valores; revisoes no mesmo instante nao podem empatar."""
+    from datetime import datetime, timezone
+
+    import mediflow.api.triage_review as modulo
+
+    instante = datetime(2026, 11, 18, 12, 0, 0, tzinfo=timezone.utc)
+
+    class RelogioParado(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return instante
+
+    processar(cliente, "DOC-002")
+    monkeypatch.setattr(modulo, "datetime", RelogioParado)
+    for acao in ("aprovar", "rejeitar", "aprovar", "rejeitar", "aprovar"):
+        extra = {"comentario": "motivo sintetico"} if acao == "rejeitar" else {}
+        assert revisar(cliente, "DOC-002", acao=acao, **extra).status_code == 201
+        assert cliente.get("/v1/triagens/DOC-002").json()["revisao_humana"]["acao"] == acao
+
+    chaves = sorted(c for c in cliente_fakeoci.objetos if c.startswith("revisoes/DOC-002/"))
+    assert len({c.rsplit("/", 1)[1][:22] for c in chaves}) == 5
+
+
 @pytest.mark.parametrize(
     "payload",
     [

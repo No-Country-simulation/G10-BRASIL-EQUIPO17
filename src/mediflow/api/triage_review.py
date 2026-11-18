@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, Literal
 from uuid import uuid4
 
@@ -34,6 +34,7 @@ router = APIRouter(
 
 _DOCUMENTO_ID = r"^[A-Za-z0-9][A-Za-z0-9-]{2,63}$"
 _CHAVE_RESULTADO = re.compile(r"^resultados/([A-Za-z0-9][A-Za-z0-9-]{2,63})/([a-f0-9]{32})/([a-f0-9]{32})\.json$")
+_FORMATO_INSTANTE = "%Y%m%dT%H%M%S%fZ"
 _CHAVE_REVISAO = re.compile(r"^revisoes/[A-Za-z0-9][A-Za-z0-9-]{2,63}/[0-9TZ]{22}-[a-f0-9]{32}\.json$")
 _LIMITE_PAGINA = 100
 _STATUS = Literal["recebido", "processando", "processado", "aguardando_auditoria", "falha"]
@@ -117,6 +118,25 @@ def _ultima_revisao(
             return revisao
 
     return None
+
+
+def _instante_revisao(storage: OCIStorage, documento_id: str) -> datetime:
+    """Instante da nova revisao, sempre posterior ao da ultima ja gravada.
+
+    A chave comeca pelo instante e e ela que ordena as revisoes em
+    `_ultima_revisao`. No Windows o relogio pode repetir o mesmo valor por
+    varios milissegundos; com instantes iguais, o desempate cairia no uuid
+    aleatorio e uma revisao antiga poderia prevalecer sobre a nova.
+    """
+    agora = datetime.now(timezone.utc)
+    instantes = [
+        datetime.strptime(chave.rsplit("/", 1)[1][:22], _FORMATO_INSTANTE).replace(tzinfo=timezone.utc)
+        for chave in _listar(storage, f"revisoes/{documento_id}/")
+        if _CHAVE_REVISAO.fullmatch(chave)
+    ]
+    if instantes and agora <= max(instantes):
+        agora = max(instantes) + timedelta(microseconds=1)
+    return agora
 
 
 
@@ -327,7 +347,10 @@ def registrar_revisao(
     if not resultado["decisao_roteamento"]["requer_revisao_humana"]:
         raise _erro(409, "REVISAO_NAO_REQUERIDA", "Este documento nao aguarda revisao humana.")
 
-    agora = datetime.now(timezone.utc)
+    try:
+        agora = _instante_revisao(storage, documento_id)
+    except Exception as exc:
+        raise _erro(502, "ARMAZENAMENTO_INDISPONIVEL", "Nao foi possivel ler as revisoes.") from exc
     revisao_id = uuid4().hex
     registro = {
         "contrato_versao": "0.1",
@@ -337,7 +360,7 @@ def registrar_revisao(
         "revisado_em": agora.isoformat().replace("+00:00", "Z"),
         **revisao.model_dump(mode="json"),
     }
-    chave = f"revisoes/{documento_id}/{agora.strftime('%Y%m%dT%H%M%S%fZ')}-{revisao_id}.json"
+    chave = f"revisoes/{documento_id}/{agora.strftime(_FORMATO_INSTANTE)}-{revisao_id}.json"
     corpo = json.dumps(registro, ensure_ascii=False, sort_keys=True).encode("utf-8")
     try:
         storage.upload_bytes_if_absent(chave, corpo, content_type="application/json")
