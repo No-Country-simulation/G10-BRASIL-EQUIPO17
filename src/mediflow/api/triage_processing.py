@@ -25,8 +25,8 @@ from mediflow_contracts.models import ResultadoTriagem
 
 router = APIRouter(prefix="/v1/triagens", tags=["processamento-documental"])
 
-_MIME = {"pdf": "application/pdf", "png": "image/png", "jpeg": "image/jpeg"}
-_EXTENSOES = {"pdf": {".pdf"}, "png": {".png"}, "jpeg": {".jpg", ".jpeg"}}
+_MIME = {"pdf": "application/pdf", "png": "image/png", "jpeg": "image/jpeg", "texto": "text/plain"}
+_EXTENSOES = {"pdf": {".pdf"}, "png": {".png"}, "jpeg": {".jpg", ".jpeg"}, "texto": {".txt"}}
 
 
 def somente_processamento_local(request: Request) -> None:
@@ -133,6 +133,14 @@ def processar_documento_armazenado(
 ) -> ResultadoTriagem:
     """Aciona o servico apenas depois de validar o manifesto e o original."""
     documento, canal_origem = _documento_verificado(storage, documento_id, arquivo_id)
+    return executar_servico(servico, documento, canal_origem)
+
+
+def executar_servico(
+    servico: ServicoTriagem, documento: DocumentoParaExtracao, canal_origem: str
+) -> ResultadoTriagem:
+    """Executa a triagem e traduz falhas em HTTP 502 sanitizado (arquivo ou texto)."""
+    documento_id = documento.documento_id
     try:
         resultado = ResultadoTriagem.model_validate(
             servico.executar(documento, canal_origem=canal_origem)

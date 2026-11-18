@@ -11,7 +11,7 @@ O **MediFlow** é um protótipo educacional para receber documentos de saúde **
 > [!IMPORTANT]
 > **Não é um sistema clínico.** O MediFlow não diagnostica, prescreve, define condutas, autoriza procedimentos nem dispensa medicamentos. Os dados e documentos de demonstração são fictícios. **Não utilize dados reais de pacientes, não exponha os serviços à internet e não interprete alertas documentais como avaliação médica.**
 
-**Estado verificado na branch `develop`:** a demonstração HTTP local processa os três cenários oficiais, com **extração por fixtures** e **FakeOCI em memória**, enquanto RAG, confirmação independente, regras e LangGraph são executados localmente. O fluxo HTTP completo também foi homologado com o **Gemini real** nos três cenários (H15), ainda com FakeOCI. A interface Streamlit opera envio, resultado e revisão humana sobre as APIs locais. A persistência Oracle real foi homologada **isoladamente** (H09); **o fluxo completo com Gemini e OCI reais juntos não foi executado** e permanece como limitação desta entrega.
+**Estado técnico verificado:** o MVP demonstrativo opera localmente com FakeOCI; a H15 homologou Gemini real com FakeOCI e a **H16 homologou Gemini + OCI reais juntos nos três cenários sintéticos**, com 12 objetos históricos auditados. As evoluções posteriores incluem indicador de qualidade, índices OCI por status, triagem textual controlada e interface Streamlit com isolamento por backend. A revisão humana da H16 está validada offline, mas sua gravação real na OCI permanece pendente. Consulte os relatórios [H16](docs/29_h16_homologacao_http_gemini_oci_real.md) e [preparação/limitações](docs/28_h16_preparacao_http_gemini_oci.md).
 
 ## Índice
 
@@ -39,10 +39,10 @@ O **MediFlow** é um protótipo educacional para receber documentos de saúde **
 | Confirmação de marcador de alerta no original | **Implementada** com leitura independente da resposta da IA |
 | Regras de encaminhamento R001–R006 e LangGraph | **Implementados e testados localmente** |
 | Resultado estruturado em `ResultadoTriagem v0.1` | **Implementado** com validação Pydantic |
-| Persistência de originais, manifestos, históricos e resultados | Adaptador implementado; **OCI real homologada isoladamente** no cenário H09; FakeOCI usada no fluxo demonstrativo |
-| Demonstração dos três cenários | **3/3 aprovados com simulação** (H14) e **3/3 com Gemini real + FakeOCI** (H15) |
+| Persistência de originais, manifestos, históricos e resultados | **H16 real homologada nos três cenários**; os novos índices segregados por status estão implementados e testados offline |
+| Demonstração dos três cenários | **3/3 com fixtures + FakeOCI (H14)**, **3/3 com Gemini real + FakeOCI (H15)** e **3/3 com Gemini + OCI reais (H16)** |
 | Interface gráfica (Streamlit) | **Integrada às APIs locais** (visão geral, envio, resultado com regra principal e evidências, fila de auditoria) e **validada visualmente nos três cenários**, com aviso permanente de simulação; ver [`src/mediflow/ui/README.md`](src/mediflow/ui/README.md) |
-| Revisão humana operacional | **Implementada nas APIs locais** (listagem, consulta e registro de aprovar/corrigir/rejeitar, gravados na FakeOCI); sem autenticação do revisor |
+| Revisão humana operacional | APIs locais e composição H16 implementadas; consulta e revisão imutável testadas offline; **revisão na OCI real ainda não homologada**; sem autenticação do revisor |
 | Deploy público, autenticação e uso clínico | **Não implementados ou autorizados** |
 
 **Interpretação:** código disponível, CI verde e testes com fakes **não** equivalem a homologação de serviços externos nem a um MVP clínico em produção. O status da branch `main` pode ser anterior ao da `develop`; consulte o [histórico de integração](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pulls) antes de promover uma versão.
@@ -133,7 +133,7 @@ O LangGraph usa os nós `validar_contratos`, `avaliar_regras`, `rota_R001` a `ro
 | **R003** | Solicitação de exame documentalmente completa | `auditoria_autorizacoes` | Não |
 | **R004** | Receituário documentalmente completo | `fila_farmacia_documental` | Não |
 | **R005** | Documento de rotina documentalmente completo | `prontuario_documental` | Não |
-| **R006** | Nenhuma condição anterior atendida | `auditoria_humana` | Sim |
+| **R006** | Nenhuma condição anterior atendida, inclusive **indicador de qualidade abaixo do limiar** | `auditoria_humana` | Sim |
 
 A revisão humana começa como **um estado de encaminhamento**. Nas APIs locais, a Fila de auditoria da interface registra a decisão (aprovar, corrigir ou rejeitar) em `POST /v1/triagens/{documento_id}/revisao`, sem alterar o resultado original.
 
@@ -295,9 +295,10 @@ O projeto contém **três aplicações FastAPI distintas**. Elas não são inter
 
 | Aplicação | Inicialização | O que faz | Limitação |
 |---|---|---|---|
-| **API de desenvolvimento** | `mediflow.api.app:app` | Saúde, upload/consulta em OCI configurada, preview e rota isolada de extração Gemini | **Não** registra `/processar`; `POST /v1/triagens/texto` responde 501 |
-| **Demonstração local** | `mediflow.api.app_demo_local:app` | Upload + processamento dos três arquivos oficiais; RAG/regras/LangGraph reais locais | Extração por fixtures; FakeOCI em memória |
+| **API de desenvolvimento** | `mediflow.api.app:app` | Saúde, upload/consulta em OCI configurada, preview e rota isolada de extração Gemini | **Não** processa triagem; `POST /v1/triagens/texto` responde 501 aqui (use os apps locais) |
+| **Demonstração local** | `mediflow.api.app_demo_local:app` | Upload + processamento dos três arquivos oficiais **ou do texto deles**; RAG/regras/LangGraph reais locais | Extração por fixtures; FakeOCI em memória |
 | **Homologação Gemini local** | `mediflow.api.app_gemini_local:app` | Composição HTTP com extrator Gemini injetável | Gemini real bloqueado por padrão; FakeOCI; somente amostras oficiais |
+| **H16 Gemini + OCI dev** | `mediflow.api.app_h16_local:app` | Upload, processamento, fila e **revisão humana** com Gemini real e bucket OCI `mediflow-docs-dev` | Exige consentimentos explícitos; somente amostras oficiais; revisor sem autenticação. Ver [H16](docs/28_h16_preparacao_http_gemini_oci.md) |
 
 **Endpoints da demonstração (`app_demo_local`)**:
 
@@ -308,13 +309,24 @@ O projeto contém **três aplicações FastAPI distintas**. Elas não são inter
 | `GET` | `/v1/triagens/arquivos/{documento_id}/{arquivo_id}` | Consulta o recibo de upload, **não** o resultado de triagem |
 | `GET` | `/v1/triagens/arquivos/{documento_id}` | Lista arquivos com paginação (`limite`, `cursor`) |
 | `POST` | `/v1/triagens/arquivos/{documento_id}/{arquivo_id}/processar` | Devolve `ResultadoTriagem v0.1` |
+| `POST` | `/v1/triagens/texto` | Recebe `EntradaTexto` em JSON (`documento_id`, `canal_origem`, `documento_texto`), grava o texto como original `.txt` e devolve `ResultadoTriagem v0.1` |
 | `GET` | `/v1/triagens?status=` | Lista as triagens persistidas (filtro opcional por status do contrato) |
 | `GET` | `/v1/triagens/{documento_id}` | Consulta o último resultado, com `recebido_em` e `revisao_humana` |
 | `POST` | `/v1/triagens/{documento_id}/revisao` | Registra `aprovar`, `corrigir` ou `rejeitar`; o resultado original não é alterado |
 
-As três últimas rotas (revisão humana) também existem na homologação Gemini local e **não** são registradas na API de desenvolvimento.
+As três últimas rotas (revisão humana) também existem na homologação Gemini local e na H16 (gravando no bucket OCI dev) e **não** são registradas na API de desenvolvimento.
 
-**Outras rotas:** na API de desenvolvimento, `GET /health` comprova apenas disponibilidade HTTP, `POST /v1/triagens/texto` continua intencionalmente não implementado (**501**) e `POST /v1/triagens/arquivos/{documento_id}/{arquivo_id}/extracao` usa o adaptador Gemini quando há OCI e credenciais configuradas. Na aplicação de homologação Gemini, `GET /gemini/estado` indica configuração/autorização, **não** sucesso da API externa; sem consentimento explícito, `/processar` retorna **503 `GEMINI_REAL_NAO_AUTORIZADO`**. Veja [documentação do modo controlado](docs/25_homologacao_gemini_local_fakeoci.md).
+**Triagem por texto:** a rota `POST /v1/triagens/texto` existe na demonstração local e na homologação Gemini local. O texto vira um original `.txt` (UTF-8, quebras normalizadas) com manifesto, e segue o mesmo pipeline do arquivo: extração, confirmação independente do alerta **no texto original**, RAG, regras/LangGraph e persistência. Como nos arquivos, **só são aceitas as amostras sintéticas oficiais**, aqui em [`amostras/texto/`](amostras/texto/) (texto extraído dos três originais), reconhecidas pelo conteúdo; outro texto é recusado **antes da gravação** com **422 `TEXTO_NAO_AUTORIZADO`**, sem ir ao Gemini. Exemplo (demonstração local):
+
+```powershell
+$texto = Get-Content amostras/texto/DOC-002_laudo_imagem_alerta.txt -Raw -Encoding utf8
+$corpo = @{ documento_id = "TXT-DOC-002"; canal_origem = "demo_texto"; documento_texto = $texto } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/v1/triagens/texto -ContentType "application/json; charset=utf-8" -Body ([Text.Encoding]::UTF8.GetBytes($corpo))
+```
+
+A aba **Texto livre** da interface Streamlit usa essa rota.
+
+**Outras rotas:** na API de desenvolvimento, `GET /health` comprova apenas disponibilidade HTTP, `POST /v1/triagens/texto` responde **501** (a triagem só existe nos apps locais) e `POST /v1/triagens/arquivos/{documento_id}/{arquivo_id}/extracao` usa o adaptador Gemini quando há OCI e credenciais configuradas. Na aplicação de homologação Gemini, `GET /gemini/estado` indica configuração/autorização, **não** sucesso da API externa; sem consentimento explícito, `/processar` retorna **503 `GEMINI_REAL_NAO_AUTORIZADO`**. Veja [documentação do modo controlado](docs/25_homologacao_gemini_local_fakeoci.md).
 
 **Limites atuais do upload:** PDF/PNG/JPEG, até **10 MiB** e PDFs com até **10 páginas**, incluindo verificações de extensão, MIME, assinatura e estrutura. Não há ingestão completa de textos/JSONs arbitrários na rota de processamento atual.
 
@@ -325,9 +337,22 @@ A fonte canônica do JSON é [`src/mediflow_contracts/models.py`](src/mediflow_c
 - **`ExtracaoIA`**: categoria, dados estruturados, evidências literais e sinais documentais.
 - **`RecuperacaoRAG`**: status de consulta e referências versionadas (`fonte_id`, título, URL e trecho quando disponíveis).
 - **`ResultadoTriagem`**: entrada, classificação, integridade, evidências, fontes, decisão, armazenamento e eventos.
-- **`IndicadorQualidade`**: nesta versão, o motor mantém `metodo="nao_calculado"`, `valor=null` e `calibrado=false`. **Não existe score clínico de confiança validado**.
+- **`IndicadorQualidade`**: score de **qualidade documental da extração**, `metodo="heuristica_completude_consistencia_v0"`, `valor` entre 0 e 1 e `calibrado=false`. **Não é confiança clínica nem probabilidade calibrada.**
 
-O motor usa **precedência fixa** R001 → R006, incluindo as validações de campos V001–V004. Não cria CID, diagnósticos, doses, páginas ou porcentagens de confiança por inferência. Falhas de RAG são registradas e não alteram a decisão; falhas de extração, integridade ou persistência podem encerrar a operação com erro HTTP sanitizado.
+#### Score de qualidade e fallback para revisão humana
+
+O motor calcula o indicador em todo processamento, com pesos fixos e critérios explicados no próprio resultado (`classificacao.indicador_qualidade.criterios`):
+
+| Critério | Peso | Medida |
+|---|---|---|
+| Completude | 0,5 | campos mínimos da categoria legíveis (`rules/validacao.yaml`) |
+| Ancoragem em evidências | 0,3 | campos mínimos com trecho literal do original em `evidencias` |
+| Consistência | 0,1 | ausência de campos conflitantes |
+| Profissional identificado | 0,1 | nome do profissional presente |
+
+Categoria `outro_desconhecido` recebe 0. **Fallback:** quando o valor fica abaixo de `indicador_qualidade.limiar_revisao_humana` (padrão **0,75**, configurável em [`rules/validacao.yaml`](rules/validacao.yaml) entre 0,5 e 1,0), um documento que seria de rotina (R003–R005) é desviado para **R006 → `auditoria_humana`**, com observação na validação e evento `FALLBACK_QUALIDADE_BAIXA`. O indicador **nunca rebaixa** R001 nem substitui R002. Nos três cenários oficiais, com as fixtures, os valores são 0,85 (DOC-001), 0,90 (DOC-002) e 0,73 (DOC-005, já em R002).
+
+O motor usa **precedência fixa** R001 → R006, incluindo as validações de campos V001–V004. Não cria CID, diagnósticos, doses ou páginas por inferência, e não apresenta o indicador de qualidade como confiança clínica. Falhas de RAG são registradas e não alteram a decisão; falhas de extração, integridade ou persistência podem encerrar a operação com erro HTTP sanitizado.
 
 ### Organização dos objetos no armazenamento
 
@@ -338,8 +363,12 @@ bucket/
 ├── originais/<documento_id>/<arquivo_id>.<ext>
 ├── metadados/<documento_id>/<arquivo_id>.json
 ├── historicos/<documento_id>/<arquivo_id>/<execucao_id>.json
-└── resultados/<documento_id>/<arquivo_id>/<execucao_id>.json
+├── resultados/<documento_id>/<arquivo_id>/<execucao_id>.json
+├── processados/<destino>/<documento_id>/<arquivo_id>/<execucao_id>.json
+└── auditoria_humana/<destino>/<documento_id>/<arquivo_id>/<execucao_id>.json
 ```
+
+**Segregação por status:** `originais/` guarda os documentos **recebidos**. Depois de confirmar histórico e resultado, a persistência grava um **índice por status e destino**: `processados/` para roteamento automático (ex.: `processados/prontuario_documental/...`) e `auditoria_humana/` para tudo que exige revisão humana, inclusive a fila prioritária (ex.: `auditoria_humana/fila_prioritaria_avaliacao_humana/...`). O índice aponta para as chaves do original, do resultado e do histórico. Se a gravação do índice falhar, a persistência **não** é confirmada.
 
 O upload gera um `arquivo_id` por recebimento; a persistência gera um `execucao_id` por processamento. A escrita de histórico e resultado utiliza criação condicional, leitura de retorno e verificação de integridade. **Falha parcial não é sucesso** e pode exigir reconciliação operacional; não há limpeza destrutiva automática. Reprocessar um documento pode criar outra execução: **a API demonstrativa não oferece idempotência nem consulta pública de resultados já processados**.
 
@@ -367,7 +396,7 @@ git diff --check
 git diff --check
 ```
 
-**Última referência de validação local para esta entrega (17/11/2026, `develop` em `3968418`):** **483 testes aprovados, 3 desmarcados intencionalmente** (`-k "not fluxo_api_com_gemini_real"`), sem falhas de compilação; inclui os testes de revisão humana ([`tests/test_api_revisao_humana.py`](tests/test_api_revisao_humana.py)). As contagens são históricas e podem mudar com novos commits. A CI executa seu próprio `pytest -q`; sem credenciais, os testes externos são omitidos ou ignorados conforme a configuração do teste.
+**Referência de validação integrada do PR #54 (17/11/2026):** **574 testes offline aprovados e 3 deselecionados**, com compilação sem erros. A CI Python 3.12/3.13 do commit `32e7138` também foi aprovada. A contagem é relativa à integração do PR #54 com a `develop`, anterior ao merge definitivo.
 
 **Documentos de evidência:**
 
@@ -378,6 +407,7 @@ git diff --check
 - [H12 — tratamento seguro de erros](docs/20_h12_tratamento_seguro_erros_api_i1.md)
 - [H14 — demonstração técnica dos três cenários](docs/26_h14_demonstracao_local.md)
 - [H15 — fluxo HTTP com Gemini real e FakeOCI](docs/27_h15_homologacao_http_gemini_real.md)
+- [H16 — HTTP com Gemini e OCI reais (3/3 cenários)](docs/29_h16_homologacao_http_gemini_oci_real.md)
 
 ## Segurança e limitações
 
@@ -392,14 +422,15 @@ git diff --check
 
 ## Próximas etapas
 
-Já concluído nesta entrega: Gemini real no fluxo HTTP dos três cenários (H15), interface Streamlit validada visualmente e revisão humana registrada nas APIs locais. As lacunas que permanecem são:
+O fluxo documental Gemini + OCI reais já foi homologado na H16. Permanecem pendentes, conforme o escopo futuro:
 
-1. **Conectar Gemini e OCI reais no mesmo fluxo HTTP autorizado**, preservando a lógica R001–R006, o contrato JSON e os controles de falha; o H09 comprova apenas o armazenamento isolado.
-2. **Reproduzir na OCI e no Gemini reais as falhas já testadas com fakes** (H10 e H12): falha parcial entre gravações, indisponibilidade e resposta inválida do serviço externo.
-3. **Coletar custo, latência por etapa e consumo de tokens** do Gemini real, que não foram registrados no H15.
-4. **Definir avaliação de qualidade mensurável**, sem inventar score ou declarar confiança calibrada antes da validação.
-5. **Completar os controles para um ambiente compartilhado ou público** — autenticação do revisor, autorização, retenção, idempotência, observabilidade, revisão de segurança e verificação dos limites Always Free — antes de considerar qualquer deploy.
-6. **Habilitar o processamento de texto colado**, hoje recusado pelas APIs (a interface já oferece a aba).
+1. **Homologar a revisão humana na OCI real**, usando somente documentos sintéticos e autorização explícita.
+2. **Verificar os novos índices segregados por status na OCI real**, sem alterar a evidência histórica H16.
+3. **Coletar métricas de custo, latência e tokens**, ainda não registradas na H16.
+4. **Avaliar as falhas de provedores reais** de forma controlada, preservando as proteções já verificadas com FakeOCI.
+5. **Calibrar o indicador heurístico de qualidade** antes de interpretá-lo como métrica de precisão.
+6. **Implementar segurança de produção**, incluindo autenticação, autorização, retenção, idempotência e observabilidade, caso exista intenção futura de publicação.
+7. **Ampliar a triagem textual** além das três amostras sintéticas oficiais somente após definir controles apropriados.
 
 ## Documentação e colaboração
 

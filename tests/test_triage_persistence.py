@@ -1,4 +1,5 @@
 """Testes isolados de persistência, sem acesso à Oracle Cloud."""
+import json
 from hashlib import sha256
 from pathlib import Path
 from types import SimpleNamespace
@@ -6,7 +7,11 @@ from types import SimpleNamespace
 import pytest
 
 from mediflow.storage.oci_storage import OCIStorage
-from mediflow.storage.triage_persistence import PersistenciaIncompleta, persistir_resultado
+from mediflow.storage.triage_persistence import (
+    PersistenciaIncompleta,
+    chave_indice_status,
+    persistir_resultado,
+)
 from mediflow_contracts.models import ResultadoTriagem
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -65,10 +70,40 @@ def test_persiste_historico_e_resultado_com_confirmacao():
     retorno = persistir_resultado(storage, recibo, resultado, execucao_id=EXECUCAO)
     assert retorno.armazenamento_oci.status == "confirmado"
     assert resultado.armazenamento_oci.status == "pendente"
-    assert len(fake.gravacoes) == 2
+    assert len(fake.gravacoes) == 3
     assert fake.gravacoes[0].startswith("historicos/")
     assert fake.gravacoes[1].startswith("resultados/")
     assert ResultadoTriagem.model_validate_json(fake.objetos[fake.gravacoes[1]]) == retorno
+    assert fake.gravacoes[2] == f"processados/prontuario_documental/DOC-001/{ARQ}/{EXECUCAO}.json"
+    indice = json.loads(fake.objetos[fake.gravacoes[2]])
+    assert indice["status"] == "processado"
+    assert indice["chave_resultado"] == retorno.armazenamento_oci.chave_resultado
+    assert indice["chave_historico"] == retorno.armazenamento_oci.chave_historico
+
+
+def test_resultado_em_auditoria_vai_para_pasta_auditoria_humana():
+    _, resultado = dados()
+    bruto = resultado.model_dump(mode="json")
+    bruto["status"] = "aguardando_auditoria"
+    bruto["classificacao"]["nivel_prioridade_documental"] = "indeterminada"
+    bruto["decisao_roteamento"].update(
+        destino_principal="auditoria_humana", requer_revisao_humana=True,
+        regra_principal="R002", regras_disparadas=["R002"],
+    )
+    em_auditoria = ResultadoTriagem.model_validate(bruto)
+    assert chave_indice_status(em_auditoria, ARQ, EXECUCAO) == (
+        f"auditoria_humana/auditoria_humana/DOC-001/{ARQ}/{EXECUCAO}.json"
+    )
+
+
+def test_falha_indice_status_nao_confirma_persistencia():
+    fake = FakeOCI()
+    fake.falhar_prefixo = "processados/"
+    storage = OCIStorage(fake, "ns", "bucket-dev")
+    recibo, resultado = dados()
+    with pytest.raises(PersistenciaIncompleta):
+        persistir_resultado(storage, recibo, resultado, execucao_id=EXECUCAO)
+    assert [g.split("/")[0] for g in fake.gravacoes] == ["historicos", "resultados"]
 
 
 def test_original_corrompido_impede_qualquer_gravacao():
