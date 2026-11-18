@@ -25,6 +25,21 @@
       "minLength": 1,
       "title": "Documento Texto",
       "type": "string"
+    },
+    "tipo_arquivo": {
+      "anyOf": [
+        {
+          "maxLength": 20,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Opcional e ignorado; aceito por compatibilidade com o exemplo do edital.",
+      "title": "Tipo Arquivo"
     }
   },
   "required": [

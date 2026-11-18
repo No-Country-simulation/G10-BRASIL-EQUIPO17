@@ -2,7 +2,7 @@
 
 **Escopo:** protótipo educacional de triagem **documental e administrativa** com arquivos exclusivamente sintéticos. Não é sistema clínico, não realiza diagnóstico, prescrição ou decisão médica. **Situação inicial:** critérios definidos; homologação completa ainda não executada.
 
-> **Situação em 18/11/2026 (`develop` em `2b10b1b`):** três cenários aprovados com simulação (H14), com Gemini real + FakeOCI (H15) e com **Gemini + OCI reais no mesmo fluxo HTTP** (H16, 12 objetos auditados); interface Streamlit validada visualmente; suíte local com 575 testes aprovados. **Pendente:** revisão humana gravando na OCI real, falhas reproduzidas nos serviços reais, custo/tokens do Gemini e aprovação formal da equipe. O MVP **não** recebe o status *homologado ponta a ponta* (ver regra de bloqueio na seção 6).
+> **Situação em 18/11/2026 (branch `docs/referencia-entrega-main` sobre `c5933c8`):** três cenários aprovados com simulação (H14), com Gemini real + FakeOCI (H15) e com **Gemini + OCI reais no mesmo fluxo HTTP** (H16, 12 objetos auditados); interface Streamlit validada visualmente; suíte local com 578 testes aprovados. **Pendente:** revisão humana gravando na OCI real, falhas reproduzidas nos serviços reais, custo/tokens do Gemini e aprovação formal da equipe. O MVP **não** recebe o status *homologado ponta a ponta* (ver regra de bloqueio na seção 6).
 
 **Referência da integração ao criar este documento:** `develop` no commit `cebdf4d` (PR #23 integrado). Revalidar o commit quando os testes forem executados.
 
@@ -62,7 +62,7 @@ Para todos: `documento_id` consistente, evidências referentes a texto efetivame
 | H10 | Falha parcial OCI não retorna sucesso nem `armazenamento_oci.status=confirmado` | I1/I5 | Teste de falha entre gravações | Aprovado com FakeOCI e testes ampliados; falhas na OCI real pendentes |
 | H11 | Endpoint `/processar` funciona **somente** em ambiente local autorizado; não publica rota sem composição/configuração segura | I1 | Testes HTTP, flags e Swagger local | Aprovado em aplicacao HTTP local; API principal sem rota de processamento; rotas de revisão humana também restritas às apps locais |
 | H12 | Entrada inválida, documento inexistente, falha externa e contrato inconsistente resultam em erro sanitizado e HTTP apropriado | I1/I2/I5 | Testes 403/404/422/502/503, conforme caso | Testes HTTP locais aprovados; falhas externas reais pendentes |
-| H13 | CI Python 3.12/3.13, suíte completa e `compileall` aprovados, sem segredos ou arquivos reais no Git | Todos | Checks GitHub + revisão de diff | Suíte local: 575 aprovados e 3 desmarcados em `2b10b1b` (18/11/2026); CI 3.12/3.13 aprovada no PR #54; confirmar a CI no commit promovido para `main` |
+| H13 | CI Python 3.12/3.13, suíte completa e `compileall` aprovados, sem segredos ou arquivos reais no Git | Todos | Checks GitHub + revisão de diff | Suíte local: 578 aprovados e 3 desmarcados na branch `docs/referencia-entrega-main` sobre `c5933c8` (18/11/2026); CI 3.12/3.13 aprovada no PR #54; confirmar a CI no commit promovido para `main` |
 | H14 | Demonstração documentada dos três cenários, com JSON sanitizado, timestamp, commit e identificador do teste | I1/I6 | Registro de execução e vídeo/roteiro se necessário | Aprovado com simulação (12/11/2026): [`docs/evidencias/h14_demonstracao_local.json`](evidencias/h14_demonstracao_local.json) |
 | H15 | Fluxo HTTP com Gemini real produz os resultados da seção 3, sem inventar dados | I1/I2 | Execução local controlada + evidência sanitizada | Aprovado real controlado local 3/3 (13/11/2026), com FakeOCI: [relatório](27_h15_homologacao_http_gemini_real.md) |
 | H16 | Fluxo HTTP com Gemini e OCI reais produz os resultados da seção 3, com objetos auditados de forma independente no bucket | I1/I2/I5 | Execução local controlada + auditoria independente dos objetos OCI | Aprovado real controlado local 3/3 (17/11/2026), bucket `mediflow-docs-dev`, 12 objetos auditados: [relatório](29_h16_homologacao_http_gemini_oci_real.md). Revisão humana na OCI real pendente |
@@ -105,7 +105,7 @@ Para todos: `documento_id` consistente, evidências referentes a texto efetivame
 
 ### P3 — Liberação do MVP demonstrável
 
-- [ ] Suíte automatizada e CI 3.12/3.13 verdes no commit candidato. *(Suíte local verde em `2b10b1b`; confirmar a CI no commit promovido para `main`.)*
+- [ ] Suíte automatizada e CI 3.12/3.13 verdes no commit candidato. *(Suíte local verde (578) na branch `docs/referencia-entrega-main` sobre `c5933c8`; confirmar a CI no commit promovido para `main`.)*
 - [x] Evidências anexadas ao PR/relatório: commit, ambiente, execução, resultado, limitações (H09, H14, H15, H16).
 - [x] README e procedimento de execução atualizados, sem segredos.
 - [ ] Equipe aprova explicitamente o **protótipo educacional**; nenhuma divulgação como uso clínico ou deploy público.
@@ -140,4 +140,4 @@ git diff --check
 
 **Não** configurar chaves/ativar serviços externos para concluir P0. Testes de Gemini e OCI reais ocorrerão separadamente, com autorização e controle de custos. O resultado local deve ser marcado como **baseline simulada**, não como homologação final.
 
-**Última baseline registrada:** 18/11/2026, `develop` em `2b10b1b`: **575 passed, 3 deselected**; `compileall` e `git diff --check` sem erros.
+**Última baseline registrada:** 18/11/2026, branch `docs/referencia-entrega-main` sobre `c5933c8`: **578 passed, 3 deselected**; `compileall` e `git diff --check` sem erros.

@@ -44,6 +44,25 @@ def test_entrada_nao_permite_campos_desconhecidos():
     assert res.status_code == 422
 
 
+def test_tipo_arquivo_do_edital_e_aceito_e_ignorado():
+    payload = {
+        'documento_id': 'DOC-CLIN-2026-8942', 'tipo_arquivo': 'PDF',
+        'canal_origem': 'Pronto_Socorro', 'documento_texto': 'Teste ficticio.'
+    }
+    res = client.post('/v1/triagens/texto', json=payload)
+    # Passa da validação do contrato (não é 422); a API principal segue sem processamento.
+    assert res.status_code == 501
+
+
+def test_tipo_arquivo_vazio_ou_longo_e_rejeitado():
+    for valor in ('', 'X' * 21):
+        res = client.post('/v1/triagens/texto', json={
+            'documento_id': 'DOC-TESTE-10', 'canal_origem': 'teste',
+            'documento_texto': 'FICTICIO', 'tipo_arquivo': valor,
+        })
+        assert res.status_code == 422
+
+
 def test_versao_de_contrato_incompativel_e_rejeitada():
     res = client.post('/v1/triagens/texto', json={
         'contrato_versao':'9.9', 'documento_id':'DOC-TESTE-10',
