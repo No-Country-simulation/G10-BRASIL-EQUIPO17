@@ -11,7 +11,7 @@ O **MediFlow** é um protótipo educacional para receber documentos de saúde **
 > [!IMPORTANT]
 > **Não é um sistema clínico.** O MediFlow não diagnostica, prescreve, define condutas, autoriza procedimentos nem dispensa medicamentos. Os dados e documentos de demonstração são fictícios. **Não utilize dados reais de pacientes, não exponha os serviços à internet e não interprete alertas documentais como avaliação médica.**
 
-**Estado verificado na branch `develop`:** a demonstração HTTP local processa os três cenários oficiais, com **extração por fixtures** e **FakeOCI em memória**, enquanto RAG, confirmação independente, regras e LangGraph são executados localmente. O fluxo HTTP completo também foi homologado com o **Gemini real** nos três cenários (H15), ainda com FakeOCI. A interface Streamlit opera envio, resultado e revisão humana sobre as APIs locais. A persistência Oracle real foi homologada **isoladamente** (H09); **o fluxo completo com Gemini e OCI reais juntos não foi executado** e permanece como limitação desta entrega.
+**Estado técnico verificado:** o MVP demonstrativo opera localmente com FakeOCI; a H15 homologou Gemini real com FakeOCI e a **H16 homologou Gemini + OCI reais juntos nos três cenários sintéticos**, com 12 objetos históricos auditados. As evoluções posteriores incluem indicador de qualidade, índices OCI por status, triagem textual controlada e interface Streamlit com isolamento por backend. A revisão humana da H16 está validada offline, mas sua gravação real na OCI permanece pendente. Consulte os relatórios [H16](docs/29_h16_homologacao_http_gemini_oci_real.md) e [preparação/limitações](docs/28_h16_preparacao_http_gemini_oci.md).
 
 ## Índice
 
@@ -39,10 +39,10 @@ O **MediFlow** é um protótipo educacional para receber documentos de saúde **
 | Confirmação de marcador de alerta no original | **Implementada** com leitura independente da resposta da IA |
 | Regras de encaminhamento R001–R006 e LangGraph | **Implementados e testados localmente** |
 | Resultado estruturado em `ResultadoTriagem v0.1` | **Implementado** com validação Pydantic |
-| Persistência de originais, manifestos, históricos e resultados | Adaptador implementado; **OCI real homologada isoladamente** no cenário H09; FakeOCI usada no fluxo demonstrativo |
-| Demonstração dos três cenários | **3/3 aprovados com simulação** (H14) e **3/3 com Gemini real + FakeOCI** (H15) |
+| Persistência de originais, manifestos, históricos e resultados | **H16 real homologada nos três cenários**; os novos índices segregados por status estão implementados e testados offline |
+| Demonstração dos três cenários | **3/3 com fixtures + FakeOCI (H14)**, **3/3 com Gemini real + FakeOCI (H15)** e **3/3 com Gemini + OCI reais (H16)** |
 | Interface gráfica (Streamlit) | **Integrada às APIs locais** (visão geral, envio, resultado com regra principal e evidências, fila de auditoria) e **validada visualmente nos três cenários**, com aviso permanente de simulação; ver [`src/mediflow/ui/README.md`](src/mediflow/ui/README.md) |
-| Revisão humana operacional | **Implementada nas APIs locais** (listagem, consulta e registro de aprovar/corrigir/rejeitar, gravados na FakeOCI); sem autenticação do revisor |
+| Revisão humana operacional | APIs locais e composição H16 implementadas; consulta e revisão imutável testadas offline; **revisão na OCI real ainda não homologada**; sem autenticação do revisor |
 | Deploy público, autenticação e uso clínico | **Não implementados ou autorizados** |
 
 **Interpretação:** código disponível, CI verde e testes com fakes **não** equivalem a homologação de serviços externos nem a um MVP clínico em produção. O status da branch `main` pode ser anterior ao da `develop`; consulte o [histórico de integração](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pulls) antes de promover uma versão.
@@ -396,7 +396,7 @@ git diff --check
 git diff --check
 ```
 
-**Última referência de validação local para esta entrega (17/11/2026, `develop` em `3968418`):** **483 testes aprovados, 3 desmarcados intencionalmente** (`-k "not fluxo_api_com_gemini_real"`), sem falhas de compilação; inclui os testes de revisão humana ([`tests/test_api_revisao_humana.py`](tests/test_api_revisao_humana.py)). As contagens são históricas e podem mudar com novos commits. A CI executa seu próprio `pytest -q`; sem credenciais, os testes externos são omitidos ou ignorados conforme a configuração do teste.
+**Referência de validação integrada do PR #54 (17/11/2026):** **574 testes offline aprovados e 3 deselecionados**, com compilação sem erros. A CI Python 3.12/3.13 do commit `32e7138` também foi aprovada. A contagem é relativa à integração do PR #54 com a `develop`, anterior ao merge definitivo.
 
 **Documentos de evidência:**
 
@@ -407,6 +407,7 @@ git diff --check
 - [H12 — tratamento seguro de erros](docs/20_h12_tratamento_seguro_erros_api_i1.md)
 - [H14 — demonstração técnica dos três cenários](docs/26_h14_demonstracao_local.md)
 - [H15 — fluxo HTTP com Gemini real e FakeOCI](docs/27_h15_homologacao_http_gemini_real.md)
+- [H16 — HTTP com Gemini e OCI reais (3/3 cenários)](docs/29_h16_homologacao_http_gemini_oci_real.md)
 
 ## Segurança e limitações
 
@@ -421,14 +422,15 @@ git diff --check
 
 ## Próximas etapas
 
-Já concluído nesta entrega: Gemini real no fluxo HTTP dos três cenários (H15), interface Streamlit validada visualmente e revisão humana registrada nas APIs locais. As lacunas que permanecem são:
+O fluxo documental Gemini + OCI reais já foi homologado na H16. Permanecem pendentes, conforme o escopo futuro:
 
-1. **Conectar Gemini e OCI reais no mesmo fluxo HTTP autorizado**, preservando a lógica R001–R006, o contrato JSON e os controles de falha; o H09 comprova apenas o armazenamento isolado.
-2. **Reproduzir na OCI e no Gemini reais as falhas já testadas com fakes** (H10 e H12): falha parcial entre gravações, indisponibilidade e resposta inválida do serviço externo.
-3. **Coletar custo, latência por etapa e consumo de tokens** do Gemini real, que não foram registrados no H15.
-4. **Calibrar o indicador de qualidade** (hoje heurística v0 com pesos fixos) contra um conjunto rotulado maior, antes de tratá-lo como métrica de desempenho.
-5. **Completar os controles para um ambiente compartilhado ou público** — autenticação do revisor, autorização, retenção, idempotência, observabilidade, revisão de segurança e verificação dos limites Always Free — antes de considerar qualquer deploy.
-6. **Ampliar a triagem por texto para textos sintéticos novos**, hoje limitada às três amostras oficiais para controlar custo e exposição do Gemini.
+1. **Homologar a revisão humana na OCI real**, usando somente documentos sintéticos e autorização explícita.
+2. **Verificar os novos índices segregados por status na OCI real**, sem alterar a evidência histórica H16.
+3. **Coletar métricas de custo, latência e tokens**, ainda não registradas na H16.
+4. **Avaliar as falhas de provedores reais** de forma controlada, preservando as proteções já verificadas com FakeOCI.
+5. **Calibrar o indicador heurístico de qualidade** antes de interpretá-lo como métrica de precisão.
+6. **Implementar segurança de produção**, incluindo autenticação, autorização, retenção, idempotência e observabilidade, caso exista intenção futura de publicação.
+7. **Ampliar a triagem textual** além das três amostras sintéticas oficiais somente após definir controles apropriados.
 
 ## Documentação e colaboração
 
