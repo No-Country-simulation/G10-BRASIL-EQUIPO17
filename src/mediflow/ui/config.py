@@ -40,8 +40,9 @@ ENDPOINTS = {
 }
 
 # Rotas de estado, testadas por ordem: a API principal expõe /health; as
-# composições locais (app_demo_local, app_gemini_local) expõem só o seu estado.
+# composições locais (app_demo_local, app_gemini_local, app_h16_local) expõem só o seu estado.
 STATUS_ENDPOINTS = {
+    "/h16/estado": "H16 (Gemini + OCI real)",
     "/gemini/estado": "Gemini local",
     "/demo/estado": "Demonstração (fixtures)",
     "/health": "API principal",

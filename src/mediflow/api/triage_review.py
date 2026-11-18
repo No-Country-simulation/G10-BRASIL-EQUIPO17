@@ -92,10 +92,31 @@ def _recebido_em(storage: OCIStorage, chave_historico: str | None) -> str | None
         return None
 
 
-def _ultima_revisao(storage: OCIStorage, documento_id: str) -> dict | None:
-    # As chaves comecam com o instante UTC, entao a maior e a mais recente.
-    chaves = sorted(c for c in _listar(storage, f"revisoes/{documento_id}/") if _CHAVE_REVISAO.fullmatch(c))
-    return _ler_json(storage, chaves[-1]) if chaves else None
+def _ultima_revisao(
+    storage: OCIStorage,
+    documento_id: str,
+    chave_resultado: str,
+) -> dict | None:
+    """Busca a revisao mais recente da execucao solicitada."""
+    chaves = sorted(
+        (
+            chave
+            for chave in _listar(storage, f"revisoes/{documento_id}/")
+            if _CHAVE_REVISAO.fullmatch(chave)
+        ),
+        reverse=True,
+    )
+
+    for chave in chaves:
+        revisao = _ler_json(storage, chave)
+        if (
+            isinstance(revisao, dict)
+            and revisao.get("documento_id") == documento_id
+            and revisao.get("chave_resultado") == chave_resultado
+        ):
+            return revisao
+
+    return None
 
 
 
@@ -261,7 +282,11 @@ def _resultados_mais_recentes(
 
 def _com_revisao(storage: OCIStorage, resultado: dict) -> dict:
     try:
-        resultado["revisao_humana"] = _ultima_revisao(storage, resultado["documento_id"])
+        resultado["revisao_humana"] = _ultima_revisao(
+            storage,
+            resultado["documento_id"],
+            resultado["armazenamento_oci"]["chave_resultado"],
+        )
     except Exception as exc:
         raise _erro(502, "ARMAZENAMENTO_INDISPONIVEL", "Nao foi possivel ler as revisoes.") from exc
     return resultado
