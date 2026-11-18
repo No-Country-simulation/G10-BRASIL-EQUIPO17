@@ -68,7 +68,7 @@ canônica do contrato.
 
 | Método | Caminho | Uso na UI | Estado na API |
 |--------|---------|-----------|---------------|
-| GET  | `/gemini/estado`, `/demo/estado`, `/health` | indicador de conexão e modo | implementado (um por app) |
+| GET  | `/h16/estado`, `/gemini/estado`, `/demo/estado`, `/health` | indicador de conexão e modo | implementado (um por app) |
 | POST | `/v1/triagens/arquivos` | 1ª etapa do envio: multipart `documento_id`, `canal_origem`, `arquivo` → `ReciboArquivo` | implementado |
 | POST | `/v1/triagens/arquivos/{documento_id}/{arquivo_id}/processar` | 2ª etapa: → `ResultadoTriagem` | implementado nas apps locais |
 | POST | `/v1/triagens/texto` | aba "Texto livre" (`EntradaTexto` → `ResultadoTriagem`); botões carregam as amostras de `amostras/texto/` | implementado nas apps locais (só textos das amostras oficiais); API principal responde 501 |
@@ -78,16 +78,18 @@ canônica do contrato.
 
 O `documento_id` vem do prefixo do nome do arquivo (`DOC-001_laudo....pdf` → `DOC-001`);
 sem prefixo válido, a UI gera `UI-AAAAMMDDhhmmss-XXXXXX`. Envia `canal_origem = "interface_streamlit"`.
-Antes do envio, valida extensão, assinatura binária, tamanho (até 10 MB) e páginas do PDF (até 10).
+Antes do envio, valida extensão, assinatura binária, tamanho (até 10 MiB) e páginas do PDF (até 10).
 
-As três rotas de consulta e revisão ficam em `src/mediflow/api/triage_review.py` e só existem nas
-apps locais (`app_demo_local`, `app_gemini_local`). Elas devolvem o `ResultadoTriagem` v0.1 com dois
+As três rotas de consulta e revisão ficam em `src/mediflow/api/triage_review.py` e existem nas
+três apps locais (`app_demo_local`, `app_gemini_local` e `app_h16_local`), mas não na API principal.
+Elas devolvem o `ResultadoTriagem` v0.1 com dois
 campos aditivos: `recebido_em` e `revisao_humana` (null até a primeira decisão). Cada decisão é
 gravada como objeto imutável em `revisoes/{documento_id}/…json`; o resultado original nunca é
-alterado e as correções do auditor ficam só no registro da revisão. Como o armazenamento é a
-FakeOCI em memória, tudo some quando a API é reiniciada.
+alterado e as correções do auditor ficam só no registro da revisão. Na demonstração e no Gemini
+local, o armazenamento é a FakeOCI em memória e tudo some quando a API é reiniciada. Na H16, a
+revisão é gravada no bucket OCI de desenvolvimento, mas essa gravação ainda não foi homologada.
 
-Contra uma API sem essas rotas (a principal ou a H16), a UI volta a usar os `ResultadoTriagem` que
+Contra uma API sem essas rotas (a principal), a UI volta a usar os `ResultadoTriagem` que
 **a própria API devolveu nesta sessão** do navegador, e deixa isso explícito:
 
 - A Visão geral e a Fila de auditoria mostram o aviso **"Dados desta sessão do navegador"**, para
@@ -104,12 +106,12 @@ Os testes offline da interface ficam em `tests/test_ui_interface.py`.
 
 ### Isolamento de resultados por API
 
-Os resultados temporarios da sessao sao separados pela URL
-do backend. Trocar de API nao mistura documentos entre servidores.
+Os resultados temporários da sessão são separados pela URL
+do backend. Trocar de API não mistura documentos entre servidores.
 
-O ultimo resultado utilizado nas telas tambem possui vinculo
+O último resultado utilizado nas telas também possui vínculo
 com a URL de origem. Resultados antigos sem origem identificada
-nao sao reutilizados pelo novo mecanismo.
+não são reutilizados pelo novo mecanismo.
 
-Este armazenamento continua restrito a sessao Streamlit.
-Nao representa historico permanente nem autenticacao de usuarios.
+Este armazenamento continua restrito à sessão Streamlit.
+Não representa histórico permanente nem autenticação de usuários.
