@@ -227,3 +227,42 @@ def test_interface_reconhece_o_modo_h16():
     from mediflow.ui.config import SIMULATED_MODES, STATUS_ENDPOINTS
     assert STATUS_ENDPOINTS["/h16/estado"] == "H16 (Gemini + OCI real)"
     assert STATUS_ENDPOINTS["/h16/estado"] not in SIMULATED_MODES
+
+
+def test_h16_reprocessamento_nao_herda_revisao(ambiente):
+    cliente, fake, _ = ambiente
+
+    primeira = processar(cliente, "DOC-002")
+    chave_a = primeira["armazenamento_oci"]["chave_resultado"]
+
+    revisao = cliente.post(
+        "/v1/triagens/DOC-002/revisao",
+        json={
+            "acao": "aprovar",
+            "revisor": "Auditor Sintetico",
+            "comentario": "Primeira execucao",
+        },
+    )
+    assert revisao.status_code == 201, revisao.text
+    assert (
+        revisao.json()["revisao_humana"]["chave_resultado"]
+        == chave_a
+    )
+
+    segunda = processar(cliente, "DOC-002")
+    chave_b = segunda["armazenamento_oci"]["chave_resultado"]
+
+    assert chave_a != chave_b
+
+    consulta = cliente.get("/v1/triagens/DOC-002")
+    assert consulta.status_code == 200, consulta.text
+    assert (
+        consulta.json()["armazenamento_oci"]["chave_resultado"]
+        == chave_b
+    )
+    assert consulta.json()["revisao_humana"] is None
+
+    assert len([
+        chave for chave in fake.objetos
+        if chave.startswith("revisoes/DOC-002/")
+    ]) == 1
