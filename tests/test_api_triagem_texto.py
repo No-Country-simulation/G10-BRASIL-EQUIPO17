@@ -98,10 +98,10 @@ def test_quebras_de_linha_windows_sao_aceitas(cliente):
 
 def test_texto_fora_das_amostras_e_recusado_sem_resultado(cliente):
     r = enviar(cliente, "TXT-LIVRE", "Paciente ficticio. Exame qualquer. Texto nao oficial.")
-    assert r.status_code == 502
-    assert r.json()["detail"]["codigo"] == "EXTRACAO_INDISPONIVEL"
+    assert r.status_code == 422
+    assert r.json()["detail"]["codigo"] == "TEXTO_NAO_AUTORIZADO"
     assert "Paciente" not in r.text
-    assert not any(c.startswith("resultados/") for c in cliente_fakeoci.objetos)
+    assert cliente_fakeoci.objetos == {}
 
 
 def test_resultado_aparece_na_listagem_de_triagens(cliente):
@@ -144,3 +144,90 @@ def test_gemini_local_so_recebe_texto_oficial():
     doc = DocumentoParaExtracao("TXT-G", "a" * 32, "TXT-G.txt", "text/plain", dados, sha256(dados).hexdigest())
     with pytest.raises(ValueError, match="amostras"):
         guarda.extrair(doc)
+
+
+@pytest.mark.parametrize(
+    "cenario",
+    ["DOC-001", "DOC-002", "DOC-005"],
+)
+def test_texto_modificado_nao_grava_objetos(cliente, cenario):
+    conteudo = texto(cenario) + "\nALTERACAO_FICTICIA"
+    resposta = enviar(
+        cliente,
+        f"TXT-ALTERADO-{cenario}",
+        conteudo,
+    )
+
+    assert resposta.status_code == 422
+    assert resposta.json()["detail"]["codigo"] == "TEXTO_NAO_AUTORIZADO"
+    assert cliente_fakeoci.objetos == {}
+
+
+def test_sem_validador_texto_falha_fechado(cliente):
+    from mediflow.api.triage_text import obter_validador_texto
+
+    original = app.dependency_overrides.pop(
+        obter_validador_texto,
+        None,
+    )
+
+    try:
+        resposta = enviar(
+            cliente,
+            "TXT-SEM-VALIDADOR",
+            texto("DOC-001"),
+        )
+
+        assert resposta.status_code == 503
+        assert (
+            resposta.json()["detail"]["codigo"]
+            == "VALIDACAO_TEXTO_NAO_CONFIGURADA"
+        )
+        assert cliente_fakeoci.objetos == {}
+    finally:
+        if original is not None:
+            app.dependency_overrides[obter_validador_texto] = original
+
+
+def test_gemini_local_rejeita_texto_sem_gravar(monkeypatch):
+    from mediflow.api.app_gemini_local import (
+        app as gemini_app,
+        fornecer_extrator_gemini,
+    )
+
+    monkeypatch.setenv("MEDIFLOW_ENV", "development")
+    monkeypatch.setenv("MEDIFLOW_ENABLE_LOCAL_UPLOADS", "true")
+    monkeypatch.setenv("MEDIFLOW_ENABLE_LOCAL_TRIAGE", "true")
+    monkeypatch.setenv("MEDIFLOW_ENABLE_LOCAL_GEMINI", "true")
+
+    cliente_fakeoci.objetos.clear()
+
+    anterior = gemini_app.dependency_overrides.get(
+        fornecer_extrator_gemini
+    )
+    gemini_app.dependency_overrides[
+        fornecer_extrator_gemini
+    ] = lambda: _ExtratorQueNaoDeveSerChamado()
+
+    try:
+        with TestClient(gemini_app) as c:
+            resposta = enviar(
+                c,
+                "TXT-GEMINI-REJEITADO",
+                "Texto ficticio fora das tres amostras.",
+            )
+
+        assert resposta.status_code == 422
+        assert resposta.json()["detail"]["codigo"] == "TEXTO_NAO_AUTORIZADO"
+        assert cliente_fakeoci.objetos == {}
+    finally:
+        if anterior is None:
+            gemini_app.dependency_overrides.pop(
+                fornecer_extrator_gemini,
+                None,
+            )
+        else:
+            gemini_app.dependency_overrides[
+                fornecer_extrator_gemini
+            ] = anterior
+        cliente_fakeoci.objetos.clear()

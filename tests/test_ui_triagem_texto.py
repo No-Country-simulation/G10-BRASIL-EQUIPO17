@@ -53,11 +53,11 @@ def test_texto_nao_implementado_tem_mensagem_clara(monkeypatch):
 
 
 def test_texto_fora_das_amostras_explica_a_restricao(monkeypatch):
-    erro = {"detail": {"codigo": "EXTRACAO_INDISPONIVEL", "mensagem": "x"}}
-    responder_texto(monkeypatch, Resposta(502, erro))
+    erro = {"detail": {"codigo": "TEXTO_NAO_AUTORIZADO", "mensagem": "x"}}
+    responder_texto(monkeypatch, Resposta(422, erro))
     with pytest.raises(APIError, match="amostras sintéticas oficiais") as exc:
         MediFlowClient(BASE).submit_text("Texto sintético qualquer")
-    assert exc.value.status_code == 502
+    assert exc.value.status_code == 422
 
 
 def test_texto_processado_e_guardado_na_sessao(monkeypatch):

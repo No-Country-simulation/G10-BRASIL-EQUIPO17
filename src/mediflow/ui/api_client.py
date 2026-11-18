@@ -217,7 +217,7 @@ class MediFlowClient:
                 raise APIError("Esta API não processa texto colado. Inicie a demonstração local "
                                "(app_demo_local) ou a homologação Gemini, ou envie o documento como arquivo.",
                                status_code=err.status_code, detail=err.detail) from err
-            if err.status_code == 502 and _error_code(err.detail) == "EXTRACAO_INDISPONIVEL":
+            if err.status_code == 422 and _error_code(err.detail) == "TEXTO_NAO_AUTORIZADO":
                 raise APIError("O texto não foi aceito. Neste modo só são processados os textos das amostras "
                                "sintéticas oficiais. Use um dos botões de amostra acima do campo.",
                                status_code=err.status_code, detail=err.detail) from err
