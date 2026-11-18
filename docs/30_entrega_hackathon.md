@@ -56,7 +56,7 @@ flowchart LR
 | Ambiguidade | DOC-005, receita ilegível | R002 | `auditoria_humana` |
 
 - **3/3 cenários** aprovados em três níveis: simulação local (H14), Gemini real (H15) e **Gemini + Oracle Cloud reais juntos** (H16, com 12 objetos auditados).
-- **574 testes automatizados** offline aprovados, com CI em Python 3.12 e 3.13.
+- **575 testes automatizados** offline aprovados, com CI em Python 3.12 e 3.13.
 
 ### Limitações e próximos passos
 

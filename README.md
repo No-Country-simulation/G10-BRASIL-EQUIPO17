@@ -11,7 +11,6 @@ O **MediFlow** é um protótipo educacional para receber documentos de saúde **
 > [!IMPORTANT]
 > **Não é um sistema clínico.** O MediFlow não diagnostica, prescreve, define condutas, autoriza procedimentos nem dispensa medicamentos. Os dados e documentos de demonstração são fictícios. **Não utilize dados reais de pacientes, não exponha os serviços à internet e não interprete alertas documentais como avaliação médica.**
 
-**Estado verificado na branch `main` (`b303b96`, PR #12):** a demonstração HTTP local processa os três cenários oficiais, com **extração por fixtures** e **FakeOCI em memória**, enquanto RAG, confirmação independente, regras e LangGraph são executados localmente. O fluxo HTTP completo também foi homologado com o **Gemini real** nos três cenários (H15), ainda com FakeOCI. A interface Streamlit opera envio, resultado e revisão humana sobre as APIs locais. A persistência Oracle real foi homologada **isoladamente** (H09); **o fluxo completo com Gemini e OCI reais juntos não foi executado** e permanece como limitação desta entrega.
 **Estado técnico verificado:** o MVP demonstrativo opera localmente com FakeOCI; a H15 homologou Gemini real com FakeOCI e a **H16 homologou Gemini + OCI reais juntos nos três cenários sintéticos**, com 12 objetos históricos auditados. As evoluções posteriores incluem indicador de qualidade, índices OCI por status, triagem textual controlada e interface Streamlit com isolamento por backend. A revisão humana da H16 está validada offline, mas sua gravação real na OCI permanece pendente. Consulte os relatórios [H16](docs/29_h16_homologacao_http_gemini_oci_real.md) e [preparação/limitações](docs/28_h16_preparacao_http_gemini_oci.md).
 
 ## Índice
@@ -64,14 +63,15 @@ flowchart TB
     RAG --> GRAPH["LangGraph + motor determinístico<br/>R001 a R006"]
     GRAPH --> PERSIST["Persistência de resultado e histórico<br/>FakeOCI na demonstração"]
     PERSIST --> JSON["ResultadoTriagem v0.1<br/>JSON validado por Pydantic"]
-    OCI[("OCI Object Storage real<br/>H09: homologação isolada")] -.->|Teste isolado H09| PERSIST
+    OCI[("OCI Object Storage real<br/>bucket dev, modo H16")] -.->|H16: original, histórico,<br/>resultado e revisões| PERSIST
 ```
 
 **O que é real em cada execução:**
 
 - **Demonstração local:** FastAPI, integridade, orquestração, confirmador, RAG, motor e LangGraph são implementações reais locais; extração utiliza os JSONs de referência; persistência utiliza FakeOCI **volátil em memória**.
 - **Homologação Gemini local:** mesma orquestração, com extrator Gemini **injetável** e protegido por autorização explícita; os testes automatizados usam um extrator controlado e **não fazem chamadas externas**; persistência permanece FakeOCI.
-- **Homologação OCI H09:** o SDK e o Object Storage reais gravaram e leram **quatro objetos** de um cenário sintético, usando **resultado de fixture**. Essa evidência não comprova o fluxo HTTP completo.
+- **Homologação OCI H09:** o SDK e o Object Storage reais gravaram e leram **quatro objetos** de um cenário sintético, usando **resultado de fixture**. Essa evidência isolada não comprova o fluxo HTTP completo.
+- **H16 Gemini + OCI dev:** fluxo HTTP completo com Gemini real e o bucket OCI de desenvolvimento `mediflow-docs-dev`, protegido por consentimentos explícitos. Os três cenários foram homologados com **12 objetos auditados**; a gravação da revisão humana nesse bucket ainda não foi homologada.
 
 O armazenamento confirmado no JSON da demonstração **não significa** que um objeto tenha sido enviado à Oracle Cloud.
 
@@ -292,7 +292,7 @@ O script registra **3/3 cenários** e gera `docs/evidencias/h14_demonstracao_loc
 
 ## Modos de API e endpoints
 
-O projeto contém **três aplicações FastAPI distintas**. Elas não são intercambiáveis e não devem ser publicadas sem autenticação/autorização.
+O projeto contém **quatro aplicações FastAPI distintas**. Elas não são intercambiáveis e não devem ser publicadas sem autenticação/autorização.
 
 | Aplicação | Inicialização | O que faz | Limitação |
 |---|---|---|---|
@@ -366,12 +366,13 @@ bucket/
 ├── historicos/<documento_id>/<arquivo_id>/<execucao_id>.json
 ├── resultados/<documento_id>/<arquivo_id>/<execucao_id>.json
 ├── processados/<destino>/<documento_id>/<arquivo_id>/<execucao_id>.json
-└── auditoria_humana/<destino>/<documento_id>/<arquivo_id>/<execucao_id>.json
+├── auditoria_humana/<destino>/<documento_id>/<arquivo_id>/<execucao_id>.json
+└── revisoes/<documento_id>/<revisao_id>.json
 ```
 
-**Segregação por status:** `originais/` guarda os documentos **recebidos**. Depois de confirmar histórico e resultado, a persistência grava um **índice por status e destino**: `processados/` para roteamento automático (ex.: `processados/prontuario_documental/...`) e `auditoria_humana/` para tudo que exige revisão humana, inclusive a fila prioritária (ex.: `auditoria_humana/fila_prioritaria_avaliacao_humana/...`). O índice aponta para as chaves do original, do resultado e do histórico. Se a gravação do índice falhar, a persistência **não** é confirmada.
+**Segregação por status:** `originais/` guarda os documentos **recebidos**. Depois de confirmar histórico e resultado, a persistência grava um **índice por status e destino**: `processados/` para roteamento automático (ex.: `processados/prontuario_documental/...`) e `auditoria_humana/` para tudo que exige revisão humana, inclusive a fila prioritária (ex.: `auditoria_humana/fila_prioritaria_avaliacao_humana/...`). O índice aponta para as chaves do original, do resultado e do histórico. Se a gravação do índice falhar, a persistência **não** é confirmada. Cada decisão de revisão humana é gravada como objeto imutável em `revisoes/`, sem alterar o resultado original.
 
-O upload gera um `arquivo_id` por recebimento; a persistência gera um `execucao_id` por processamento. A escrita de histórico e resultado utiliza criação condicional, leitura de retorno e verificação de integridade. **Falha parcial não é sucesso** e pode exigir reconciliação operacional; não há limpeza destrutiva automática. Reprocessar um documento pode criar outra execução: **a API demonstrativa não oferece idempotência nem consulta pública de resultados já processados**.
+O upload gera um `arquivo_id` por recebimento; a persistência gera um `execucao_id` por processamento. A escrita de histórico e resultado utiliza criação condicional, leitura de retorno e verificação de integridade. **Falha parcial não é sucesso** e pode exigir reconciliação operacional; não há limpeza destrutiva automática. Reprocessar um documento pode criar outra execução: **as APIs locais não oferecem idempotência**. A consulta `GET /v1/triagens/{documento_id}` devolve apenas o último resultado de cada documento e só existe nas aplicações locais, sem autenticação.
 
 O critério **H09** documenta uma execução **real controlada** no Object Storage em 08/11/2026, com quatro objetos associados ao DOC-001 sintético e decisão proveniente de fixture. Consulte [evidência H09](docs/17_homologacao_h09_persistencia_oci_real.md). O script [`scripts/homologar_h09_oci_real.py`](scripts/homologar_h09_oci_real.py) possui um **modo de planejamento sem gravação**; executar com `--execute` escreve novos objetos reais e exige autorização explícita, validação de credenciais e avaliação dos limites/custos OCI.
 
@@ -397,12 +398,11 @@ git diff --check
 git diff --check
 ```
 
-**Última referência de validação para esta entrega (17/11/2026, `main` em `b303b96`, mesmo conteúdo de `develop` em `97517b9`):** **483 testes aprovados localmente, 3 desmarcados intencionalmente** (`-k "not fluxo_api_com_gemini_real"`), sem falhas de compilação, e **CI MediFlow verde em Python 3.12 e 3.13** no push para `main`; inclui os testes de revisão humana ([`tests/test_api_revisao_humana.py`](tests/test_api_revisao_humana.py)). As contagens são históricas e podem mudar com novos commits. A CI executa seu próprio `pytest -q`; sem credenciais, os testes externos são omitidos ou ignorados conforme a configuração do teste.
-**Referência de validação integrada do PR #54 (17/11/2026):** **574 testes offline aprovados e 3 deselecionados**, com compilação sem erros. A CI Python 3.12/3.13 do commit `32e7138` também foi aprovada. A contagem é relativa à integração do PR #54 com a `develop`, anterior ao merge definitivo.
+**Referência de validação (18/11/2026, `develop` após o PR #54 e o commit `2b10b1b`):** **575 testes offline aprovados e 3 deselecionados** com `pytest -q -k "not fluxo_api_com_gemini_real"`, e compilação sem erros.
 
 **Documentos de evidência:**
 
-- [Critérios de homologação H01–H14](docs/16_criterios_homologacao_mvp.md)
+- [Critérios de homologação H01–H16](docs/16_criterios_homologacao_mvp.md)
 - [H09 — persistência OCI real isolada](docs/17_homologacao_h09_persistencia_oci_real.md)
 - [H10 — falhas parciais com FakeOCI](docs/18_homologacao_h10_falhas_parciais_i1.md)
 - [H11 — controles de processamento local](docs/19_h11_controles_processamento_local_i1.md)

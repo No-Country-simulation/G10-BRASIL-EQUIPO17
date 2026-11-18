@@ -2,7 +2,7 @@
 
 **Escopo:** protótipo educacional de triagem **documental e administrativa** com arquivos exclusivamente sintéticos. Não é sistema clínico, não realiza diagnóstico, prescrição ou decisão médica. **Situação inicial:** critérios definidos; homologação completa ainda não executada.
 
-> **Situação em 17/11/2026 (`main` em `b303b96`, promovida pelo PR #12):** três cenários aprovados com simulação (H14) e com Gemini real + FakeOCI (H15); interface Streamlit validada visualmente; suíte local com 483 testes aprovados; CI 3.12/3.13 verde na `main`. **Pendente:** Gemini e OCI reais no mesmo fluxo, falhas reproduzidas nos serviços reais, custo/tokens do Gemini e aprovação formal da equipe. O MVP **não** recebe o status *homologado ponta a ponta* (ver regra de bloqueio na seção 6).
+> **Situação em 18/11/2026 (`develop` em `2b10b1b`):** três cenários aprovados com simulação (H14), com Gemini real + FakeOCI (H15) e com **Gemini + OCI reais no mesmo fluxo HTTP** (H16, 12 objetos auditados); interface Streamlit validada visualmente; suíte local com 575 testes aprovados. **Pendente:** revisão humana gravando na OCI real, falhas reproduzidas nos serviços reais, custo/tokens do Gemini e aprovação formal da equipe. O MVP **não** recebe o status *homologado ponta a ponta* (ver regra de bloqueio na seção 6).
 
 **Referência da integração ao criar este documento:** `develop` no commit `cebdf4d` (PR #23 integrado). Revalidar o commit quando os testes forem executados.
 
@@ -50,21 +50,22 @@ Para todos: `documento_id` consistente, evidências referentes a texto efetivame
 
 | Código | Critério de aceite verificável | Dono | Método de evidência | Situação registrada |
 |---|---|---|---|---|
-| H01 | Upload de PDF/PNG sintético retorna recibo vinculando `documento_id`, `arquivo_id`, nome, MIME, tamanho e SHA-256 | I1/I5 | API + inspeção de recibo | Aprovado no fluxo HTTP local com FakeOCI (H14 e H15); com OCI real, apenas isolado (H09) |
+| H01 | Upload de PDF/PNG sintético retorna recibo vinculando `documento_id`, `arquivo_id`, nome, MIME, tamanho e SHA-256 | I1/I5 | API + inspeção de recibo | Aprovado no fluxo HTTP local com FakeOCI (H14 e H15) e com OCI real (H16, 3/3) |
 | H02 | Documento recuperado corresponde byte a byte ao original; adulteração bloqueia processamento | I1/I5 | Teste negativo SHA-256 | Aprovado com simulação em testes anteriores; revalidar integração |
-| H03 | I2 classifica e extrai campos no contrato `ExtracaoIA v0.1`, sem valores inventados | I2 | Teste automatizado + chamada Gemini controlada | Aprovado real controlado: Gemini real nos 3 cenários (H15); custo e tokens não medidos |
+| H03 | I2 classifica e extrai campos no contrato `ExtracaoIA v0.1`, sem valores inventados | I2 | Teste automatizado + chamada Gemini controlada | Aprovado real controlado: Gemini real nos 3 cenários (H15 e H16); custo e tokens não medidos |
 | H04 | Evidências possuem trecho real e referência de página válida (ou página nula com trecho verificável) | I2 | Teste de integridade textual | Aprovado com simulação; no H15 há evidências nos 3 resultados (14/10/5), sem conferência literal registrada |
 | H05 | I3 retorna `RecuperacaoRAG` com `fonte_id`, versão e URL verificável quando houver referência; não decide roteamento | I3/I1 | Testes do recuperador definitivo + I1 | RAG real local consultado nos 3 cenários do fluxo HTTP (H14 e H15) |
-| H06 | I4 confirma alerta do DOC-002 diretamente no original, de modo independente da LLM; R001 tem precedência | I4 | Testes com alerta confirmado/não confirmado e ambiguidades concomitantes | Testado localmente; no H15 (Gemini real) R001 permaneceu principal no DOC-002, sem log separado do confirmador |
-| H07 | DOC-001/DOC-002/DOC-005 apresentam os destinos, regras, revisão e status previstos na seção 3 | I4/I1 | Testes parametrizados + execução final | Aprovado com simulação (H14) e real controlado com Gemini + FakeOCI (H15), 3/3 |
+| H06 | I4 confirma alerta do DOC-002 diretamente no original, de modo independente da LLM; R001 tem precedência | I4 | Testes com alerta confirmado/não confirmado e ambiguidades concomitantes | Testado localmente; no H15 e na H16 (Gemini real) R001 permaneceu principal no DOC-002; na H16 o marcador foi reconfirmado na auditoria a partir dos bytes gravados na OCI, sem log separado da execução do confirmador |
+| H07 | DOC-001/DOC-002/DOC-005 apresentam os destinos, regras, revisão e status previstos na seção 3 | I4/I1 | Testes parametrizados + execução final | Aprovado com simulação (H14), real controlado com Gemini + FakeOCI (H15) e com Gemini + OCI reais (H16), 3/3 |
 | H08 | Falha do RAG é registrada como `falha` e não altera a prioridade/decisão do I4 | I1/I3/I4 | Teste negativo com erro injetado | Aprovado com falha RAG simulada e motor deterministico real |
-| H09 | OCI grava resultado e histórico da mesma execução; leitura posterior confirma integridade e associação ao arquivo | I1/I5 | Testes com fake + bucket de desenvolvimento autorizado | Aprovado real controlado em DOC-001 com fixture (08/11/2026); nao ponta a ponta |
+| H09 | OCI grava resultado e histórico da mesma execução; leitura posterior confirma integridade e associação ao arquivo | I1/I5 | Testes com fake + bucket de desenvolvimento autorizado | Aprovado real controlado: isolado em DOC-001 com fixture (H09, 08/11/2026) e no fluxo HTTP completo nos 3 cenários (H16, 17/11/2026, 12 objetos auditados) |
 | H10 | Falha parcial OCI não retorna sucesso nem `armazenamento_oci.status=confirmado` | I1/I5 | Teste de falha entre gravações | Aprovado com FakeOCI e testes ampliados; falhas na OCI real pendentes |
 | H11 | Endpoint `/processar` funciona **somente** em ambiente local autorizado; não publica rota sem composição/configuração segura | I1 | Testes HTTP, flags e Swagger local | Aprovado em aplicacao HTTP local; API principal sem rota de processamento; rotas de revisão humana também restritas às apps locais |
 | H12 | Entrada inválida, documento inexistente, falha externa e contrato inconsistente resultam em erro sanitizado e HTTP apropriado | I1/I2/I5 | Testes 403/404/422/502/503, conforme caso | Testes HTTP locais aprovados; falhas externas reais pendentes |
-| H13 | CI Python 3.12/3.13, suíte completa e `compileall` aprovados, sem segredos ou arquivos reais no Git | Todos | Checks GitHub + revisão de diff | Aprovado: suíte local com 483 aprovados em `97517b9`; CI 3.12/3.13 verde no PR #12 e no push para `main` (`b303b96`, 17/11/2026) |
+| H13 | CI Python 3.12/3.13, suíte completa e `compileall` aprovados, sem segredos ou arquivos reais no Git | Todos | Checks GitHub + revisão de diff | Suíte local: 575 aprovados e 3 desmarcados em `2b10b1b` (18/11/2026); CI 3.12/3.13 aprovada no PR #54; confirmar a CI no commit promovido para `main` |
 | H14 | Demonstração documentada dos três cenários, com JSON sanitizado, timestamp, commit e identificador do teste | I1/I6 | Registro de execução e vídeo/roteiro se necessário | Aprovado com simulação (12/11/2026): [`docs/evidencias/h14_demonstracao_local.json`](evidencias/h14_demonstracao_local.json) |
 | H15 | Fluxo HTTP com Gemini real produz os resultados da seção 3, sem inventar dados | I1/I2 | Execução local controlada + evidência sanitizada | Aprovado real controlado local 3/3 (13/11/2026), com FakeOCI: [relatório](27_h15_homologacao_http_gemini_real.md) |
+| H16 | Fluxo HTTP com Gemini e OCI reais produz os resultados da seção 3, com objetos auditados de forma independente no bucket | I1/I2/I5 | Execução local controlada + auditoria independente dos objetos OCI | Aprovado real controlado local 3/3 (17/11/2026), bucket `mediflow-docs-dev`, 12 objetos auditados: [relatório](29_h16_homologacao_http_gemini_oci_real.md). Revisão humana na OCI real pendente |
 
 ## 5. Testes de falha e segurança (obrigatórios)
 
@@ -92,20 +93,20 @@ Para todos: `documento_id` consistente, evidências referentes a texto efetivame
 - [x] Confirmador independente, motor de regras e LangGraph integrados (PR #33).
 - [x] Orquestracao integrada com extracao por fixture, RAG, LangGraph e FakeOCI (PR #37).
 - [x] Rota de processamento registrada na aplicacao demonstrativa local (PRs #31 e #42).
-- [ ] Integrar Gemini e persistencia OCI reais ao processamento completo. *(Gemini real integrado e homologado no H15; OCI real ainda fora do fluxo completo.)*
+- [x] Integrar Gemini e persistência OCI reais ao processamento completo (`app_h16_local`, homologado na H16).
 - [x] Interface Streamlit e revisão humana integradas às APIs locais (PR #46).
 
 ### P2 — Execução controlada de serviços reais
 
-- [ ] Gemini real homologado com documentos sintéticos, custo/latência anotados e sem segredos. *(Homologado no H15 com latência por cenário e sem segredos; custo e tokens não medidos.)*
-- [x] Persistencia OCI real homologada com fixture DOC-001 (H09); fluxo completo pendente.
-- [x] DOC-001, DOC-002 e DOC-005 passaram nos resultados da seção 3 sem correção manual oculta (H14 e H15).
+- [ ] Gemini real homologado com documentos sintéticos, custo/latência anotados e sem segredos. *(Homologado no H15 com latência por cenário e na H16, sem segredos; custo e tokens não medidos.)*
+- [x] Persistência OCI real homologada isoladamente com fixture DOC-001 (H09) e no fluxo completo dos três cenários (H16).
+- [x] DOC-001, DOC-002 e DOC-005 passaram nos resultados da seção 3 sem correção manual oculta (H14, H15 e H16).
 - [ ] Falhas obrigatórias da seção 5 reproduzidas e registradas. *(Cobertas com fakes em H08, H10 e H12; não reproduzidas nos serviços reais.)*
 
 ### P3 — Liberação do MVP demonstrável
 
-- [x] Suíte automatizada e CI 3.12/3.13 verdes no commit candidato. *(Suíte local verde em `97517b9`; CI verde no PR #12 e na `main` em `b303b96`.)*
-- [x] Evidências anexadas ao PR/relatório: commit, ambiente, execução, resultado, limitações (H09, H14, H15).
+- [ ] Suíte automatizada e CI 3.12/3.13 verdes no commit candidato. *(Suíte local verde em `2b10b1b`; confirmar a CI no commit promovido para `main`.)*
+- [x] Evidências anexadas ao PR/relatório: commit, ambiente, execução, resultado, limitações (H09, H14, H15, H16).
 - [x] README e procedimento de execução atualizados, sem segredos.
 - [ ] Equipe aprova explicitamente o **protótipo educacional**; nenhuma divulgação como uso clínico ou deploy público.
 
@@ -125,6 +126,7 @@ Copiar uma linha por execução, sem incluir dados clínicos não sintéticos ou
 | 13/11/2026 (hora não capturada) | `d9510da` | DOC-005 (H15) | Local, HTTP `127.0.0.1:8001` | Idem | R002, auditoria_humana, aguardando_auditoria | R002, auditoria_humana, aguardando_auditoria; `dosagem_texto=null` (6,34 s) | Aprovado real controlado | Idem | I1/I2 |
 | 17/11/2026 14:00 | `b6427d1` + alterações integradas em `e8255fc` | DOC-001/002/005 pela interface Streamlit | Local, `app_demo_local` + Streamlit | Reais: API, RAG, regras, LangGraph, UI. Simulados: extração (fixture), FakeOCI | Resultados da seção 3; revisão humana registrada sem alterar o resultado | 3/3 conforme a seção 3; revisão `corrigir` gravada com `dosagem_texto` original mantido `null` | Aprovado com simulação | QA visual; correções de UI no PR #46 | Equipe |
 | 17/11/2026 | `97517b9` → `main` `b303b96` | Suíte completa (H13) | Local Python 3.12.10 + GitHub Actions 3.12/3.13 | Reais: API, RAG, regras, LangGraph. Simulados: extração (fixture), FakeOCI; testes de Gemini real desmarcados | Suíte e CI verdes | 483 passed, 3 deselected; CI verde no PR #12 e no push para `main` | Aprovado | PR #12 | Equipe |
+| 17/11/2026 (hora não capturada) | branch `feat/h16-http-gemini-oci-real` (commit não registrado) | DOC-001/002/005 (H16) | Local, `app_h16_local` + bucket `mediflow-docs-dev` (`sa-saopaulo-1`) | Reais: API, Gemini, RAG, confirmador, regras, LangGraph, OCI Object Storage | Resultados da seção 3 | R005/processado, R001/aguardando_auditoria, R002/aguardando_auditoria com `dosagem_texto=null`; 12 objetos auditados | Aprovado real controlado | `docs/29_h16_homologacao_http_gemini_oci_real.md` | Equipe |
 
 ## 8. Execução preliminar sem serviços reais
 
@@ -138,4 +140,4 @@ git diff --check
 
 **Não** configurar chaves/ativar serviços externos para concluir P0. Testes de Gemini e OCI reais ocorrerão separadamente, com autorização e controle de custos. O resultado local deve ser marcado como **baseline simulada**, não como homologação final.
 
-**Última baseline registrada:** 17/11/2026, `develop` em `97517b9` (conteúdo idêntico a `main` em `b303b96`): **483 passed, 3 deselected**; `compileall` e `git diff --check` sem erros; CI 3.12/3.13 verde na `main`.
+**Última baseline registrada:** 18/11/2026, `develop` em `2b10b1b`: **575 passed, 3 deselected**; `compileall` e `git diff --check` sem erros.
