@@ -8,7 +8,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from mediflow.ui.api_client import APIError, get_backend
+from mediflow.ui.api_client import APIError, get_backend, get_last_result, set_last_result
 from mediflow.ui.components import badge_row, page_header, priority_badge, show_api_error
 from mediflow.ui.config import (ACCEPTED_FILE_TYPES, FILE_SIGNATURES, MAX_PDF_PAGES, MAX_UPLOAD_MB,
                                SAMPLE_TEXTS, SAMPLE_TEXTS_DIR)
@@ -342,7 +342,7 @@ def _process(source: str, send_fn, *args) -> bool:
 
     doc = normalize_document(raw)
     st.session_state["selected_doc_id"] = doc["id"]
-    st.session_state["last_result"] = raw  # útil se a API não expuser GET /documents/{id}
+    set_last_result(raw)  # preserva a origem da API
     st.session_state[_JUST_PROCESSED] = source
     return True
 
@@ -384,7 +384,7 @@ def _upload_success(uploaded, processed: bool = False) -> None:
 
 def _show_last_result(source: str) -> None:
     """Resumo do último documento processado (só se veio de `source`), com atalho para o detalhe."""
-    raw = st.session_state.get("last_result")
+    raw = get_last_result()
     if not raw or st.session_state.get(_JUST_PROCESSED) != source:
         return
     doc = normalize_document(raw)

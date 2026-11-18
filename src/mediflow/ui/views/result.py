@@ -12,7 +12,7 @@ import json
 import pandas as pd
 import streamlit as st
 
-from mediflow.ui.api_client import APIError, get_backend
+from mediflow.ui.api_client import APIError, get_backend, get_last_result
 from mediflow.ui.components import (
     badge_row, flag_label, format_confidence, parse_ts, priority_label, show_api_error,
 )
@@ -86,7 +86,7 @@ def _load_document(backend, doc_id: str) -> dict | None:
     try:
         return backend.get_document(doc_id)
     except APIError as err:
-        last = st.session_state.get("last_result")
+        last = get_last_result()
         if last and normalize_document(last)["id"] == doc_id:
             return last
         show_api_error(err, f"Não foi possível carregar o documento {doc_id}")
