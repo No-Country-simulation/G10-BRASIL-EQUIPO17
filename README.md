@@ -402,7 +402,7 @@ git diff --check
 
 **Documentos de evidência:**
 
-- [Critérios de homologação H01–H14](docs/16_criterios_homologacao_mvp.md)
+- [Critérios de homologação H01–H16](docs/16_criterios_homologacao_mvp.md)
 - [H09 — persistência OCI real isolada](docs/17_homologacao_h09_persistencia_oci_real.md)
 - [H10 — falhas parciais com FakeOCI](docs/18_homologacao_h10_falhas_parciais_i1.md)
 - [H11 — controles de processamento local](docs/19_h11_controles_processamento_local_i1.md)
