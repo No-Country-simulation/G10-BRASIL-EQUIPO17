@@ -96,6 +96,21 @@ def test_quebras_de_linha_windows_sao_aceitas(cliente):
     assert r.json()["decisao_roteamento"]["regra_principal"] == "R005"
 
 
+def test_tipo_arquivo_do_edital_nao_altera_tipo_entrada(cliente):
+    """Payload no formato do edital: `tipo_arquivo` é aceito, mas ignorado."""
+    r = cliente.post("/v1/triagens/texto", json={
+        "documento_id": "DOC-CLIN-2026-8942",
+        "tipo_arquivo": "PDF",
+        "documento_texto": texto("DOC-002"),
+        "canal_origem": "Pronto_Socorro",
+    })
+    assert r.status_code == 200, r.text
+    resultado = ResultadoTriagem.model_validate(r.json())
+    assert resultado.entrada.tipo_entrada == "texto"
+    assert resultado.decisao_roteamento.regra_principal == "R001"
+    assert "tipo_arquivo" not in r.text
+
+
 def test_texto_fora_das_amostras_e_recusado_sem_resultado(cliente):
     r = enviar(cliente, "TXT-LIVRE", "Paciente ficticio. Exame qualquer. Texto nao oficial.")
     assert r.status_code == 422

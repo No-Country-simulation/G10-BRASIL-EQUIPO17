@@ -22,6 +22,12 @@ class EntradaTexto(Estrito):
     documento_id: str = Field(min_length=3, max_length=64, pattern=r'^[A-Za-z0-9][A-Za-z0-9-]*$')
     canal_origem: str = Field(min_length=1, max_length=80)
     documento_texto: str = Field(min_length=1, max_length=100_000)
+    # Compatibilidade com o exemplo do edital. Apenas informativo: o tipo real
+    # de entrada é sempre determinado pelo servidor (`entrada.tipo_entrada`).
+    tipo_arquivo: str | None = Field(
+        default=None, min_length=1, max_length=20,
+        description='Opcional e ignorado; aceito por compatibilidade com o exemplo do edital.',
+    )
 
 class Paciente(Estrito):
     nome: str | None = None
