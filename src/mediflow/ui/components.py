@@ -159,3 +159,28 @@ def show_api_error(err: APIError, context: str = "") -> None:
             st.code(str(err.detail))
     if err.status_code is None:
         st.caption("Dica: inicie a API na raiz do monorepo; veja `src/mediflow/ui/README.md`.")
+
+
+# --------------------------------------------------------------------------- #
+# Avisos sobre a origem dos dados
+# --------------------------------------------------------------------------- #
+SESSION_DATA_NOTICE = (
+    "**Dados desta sessão do navegador.** A API conectada não lista triagens, então só aparecem "
+    "os documentos processados nesta sessão. Não é o histórico permanente da instituição."
+)
+UI_TIME_NOTE = (
+    "Horários com * foram registrados pela interface ao receber o resultado, "
+    "não pela API (a API não informou a data de recebimento)."
+)
+REVIEW_UNAVAILABLE_NOTICE = (
+    "**Revisão humana ainda não integrada nesta API.** A fila pode ser consultada, mas aprovar, "
+    "corrigir ou rejeitar só funciona com as APIs locais de demonstração ou Gemini."
+)
+
+
+def received_label(doc: dict, fmt: str = "%d/%m %H:%M") -> str:
+    """Data formatada; marca com * a hora registrada pela interface (não pela API)."""
+    ts = doc.get("ts")
+    if ts is None:
+        return "—"
+    return f"{ts:{fmt}}" + ("*" if doc.get("received_at_source") == "interface" else "")

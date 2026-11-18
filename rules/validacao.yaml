@@ -26,3 +26,9 @@ campos_minimos_por_categoria:
   relatorio_alta: [paciente.nome, resumo, data_admissao, data_alta]
   atestado: [paciente.nome, data_emissao, afastamento_periodo]
   outro_desconhecido: []
+# Indicador de qualidade DOCUMENTAL da extracao (heuristica v0, nao calibrada,
+# nao e confianca clinica). Abaixo do limiar, documentos que seriam de rotina
+# (R003-R005) vao para revisao humana via R006. Faixa aceita: 0,5 a 1,0.
+indicador_qualidade:
+  metodo: heuristica_completude_consistencia_v0
+  limiar_revisao_humana: 0.75

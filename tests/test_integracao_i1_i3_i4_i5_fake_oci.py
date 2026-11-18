@@ -87,8 +87,10 @@ def test_documentos_oficiais_com_rag_grafo_e_persistencia_ficticia(doc_id, regra
     assert resultado.rag.status == "consultado"
     assert 1 <= len(resultado.rag.fontes) <= 3
     assert resultado.armazenamento_oci.status == "confirmado"
-    assert len(fake.gravacoes) == 2
-    chave_historico, chave_resultado = fake.gravacoes
+    assert len(fake.gravacoes) == 3
+    chave_historico, chave_resultado, chave_status = fake.gravacoes
+    pasta = "processados" if status == "processado" else "auditoria_humana"
+    assert chave_status.startswith(f"{pasta}/{destino}/{doc_id}/{original.arquivo_id}/")
     assert chave_historico.startswith(f"historicos/{doc_id}/{original.arquivo_id}/")
     assert chave_resultado.startswith(f"resultados/{doc_id}/{original.arquivo_id}/")
     assert resultado.armazenamento_oci.chave_historico == chave_historico
@@ -163,4 +165,4 @@ def test_dois_uploads_do_mesmo_documento_nao_misturam_chaves():
     assert a.armazenamento_oci.status == b.armazenamento_oci.status == "confirmado"
     assert a.armazenamento_oci.chave_resultado != b.armazenamento_oci.chave_resultado
     assert a.armazenamento_oci.chave_historico != b.armazenamento_oci.chave_historico
-    assert len(fake.gravacoes) == 4
+    assert len(fake.gravacoes) == 6

@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from mediflow.api.triage_processing import somente_processamento_local
 from mediflow.api.uploads import armazenamento
 from mediflow.storage.oci_storage import OCIStorage
+from mediflow.storage.triage_persistence import chave_indice_status
 from mediflow_contracts.models import ResultadoTriagem
 
 router = APIRouter(
@@ -118,26 +119,164 @@ def _ultima_revisao(
     return None
 
 
-def _resultados_mais_recentes(storage: OCIStorage, documento_id: str | None = None) -> dict[str, dict]:
-    """Ultimo ResultadoTriagem valido de cada documento, com `recebido_em` aditivo."""
-    prefixo = f"resultados/{documento_id}/" if documento_id else "resultados/"
+
+def _ler_json_opcional(
+    storage: OCIStorage,
+    chave: str,
+) -> dict | None:
+    """Distingue objeto ausente de indisponibilidade do armazenamento."""
+    try:
+        return _ler_json(storage, chave)
+    except (
+        KeyError,
+        FileNotFoundError,
+        json.JSONDecodeError,
+        UnicodeDecodeError,
+    ):
+        return None
+    except Exception as exc:
+        if getattr(exc, "status", None) == 404:
+            return None
+        raise _erro(
+            502,
+            "ARMAZENAMENTO_INDISPONIVEL",
+            "Nao foi possivel verificar a persistencia da triagem.",
+        ) from exc
+
+
+def _resultado_elegivel(storage, chave, resultado):
+    """Aceita legado H16 ou execucao nova com indice confirmado."""
+    partes = _CHAVE_RESULTADO.fullmatch(chave)
+    if partes is None:
+        return None
+
+    doc, arq, execucao = partes.groups()
+    oci = resultado.armazenamento_oci
+    historico_chave = f"historicos/{doc}/{arq}/{execucao}.json"
+
+    if (
+        resultado.documento_id != doc
+        or oci.status != "confirmado"
+        or oci.bucket != storage.bucket
+        or oci.chave_resultado != chave
+        or oci.chave_historico != historico_chave
+    ):
+        return None
+
+    historico = _ler_json_opcional(storage, historico_chave)
+    if historico is None:
+        return None
+
+    if not isinstance(historico, dict):
+        return None
+
+    esperado_historico = {
+        "contrato_versao": "0.1",
+        "documento_id": doc,
+        "arquivo_id": arq,
+        "execucao_id": execucao,
+        "status_resultado": resultado.status,
+    }
+    if any(
+        historico.get(campo) != valor
+        for campo, valor in esperado_historico.items()
+    ):
+        return None
+
+    # Historicos da H16 original nao exigiam indice.
+    # Historicos novos declaram expressamente qual indice
+    # precisa existir para a execucao ser consultavel.
+    if "chave_indice_status" in historico:
+        chave_indice = chave_indice_status(resultado, arq, execucao)
+
+        if historico["chave_indice_status"] != chave_indice:
+            return None
+
+        indice = _ler_json_opcional(storage, chave_indice)
+        if indice is None:
+            return None
+
+        if not isinstance(indice, dict):
+            return None
+
+        esperado_indice = {
+            "contrato_versao": "0.1",
+            "documento_id": doc,
+            "arquivo_id": arq,
+            "execucao_id": execucao,
+            "status": resultado.status,
+            "destino_principal": (
+                resultado.decisao_roteamento.destino_principal
+            ),
+            "regra_principal": (
+                resultado.decisao_roteamento.regra_principal
+            ),
+            "requer_revisao_humana": (
+                resultado.decisao_roteamento.requer_revisao_humana
+            ),
+            "chave_original": oci.chave_original,
+            "chave_resultado": chave,
+            "chave_historico": historico_chave,
+        }
+
+        if any(
+            indice.get(campo) != valor
+            for campo, valor in esperado_indice.items()
+        ):
+            return None
+
+    dados = resultado.model_dump(mode="json")
+    dados["recebido_em"] = historico.get("registrado_em_utc")
+    return dados
+
+
+def _resultados_mais_recentes(
+    storage: OCIStorage,
+    documento_id: str | None = None,
+) -> dict[str, dict]:
+    """Ultimo resultado completo por documento."""
+    prefixo = (
+        f"resultados/{documento_id}/"
+        if documento_id else "resultados/"
+    )
+
     try:
         chaves = _listar(storage, prefixo)
     except Exception as exc:
-        raise _erro(502, "ARMAZENAMENTO_INDISPONIVEL", "Nao foi possivel listar as triagens.") from exc
+        raise _erro(
+            502,
+            "ARMAZENAMENTO_INDISPONIVEL",
+            "Nao foi possivel listar as triagens.",
+        ) from exc
 
-    escolhidos: dict[str, dict] = {}
+    escolhidos = {}
+
     for chave in chaves:
         if not _CHAVE_RESULTADO.fullmatch(chave):
             continue
+
+        bruto = _ler_json_opcional(storage, chave)
+        if bruto is None:
+            continue
+
         try:
-            resultado = ResultadoTriagem.model_validate(_ler_json(storage, chave)).model_dump(mode="json")
+            objeto = ResultadoTriagem.model_validate(bruto)
         except Exception:
-            continue  # objeto parcial ou fora do contrato: nao entra na listagem
-        resultado["recebido_em"] = _recebido_em(storage, resultado["armazenamento_oci"].get("chave_historico"))
-        atual = escolhidos.get(resultado["documento_id"])
-        if atual is None or (resultado["recebido_em"] or "") > (atual["recebido_em"] or ""):
-            escolhidos[resultado["documento_id"]] = resultado
+            continue
+
+        dados = _resultado_elegivel(storage, chave, objeto)
+
+        if dados is None:
+            continue
+
+        atual = escolhidos.get(dados["documento_id"])
+        if (
+            atual is None
+            or (dados["recebido_em"] or "")
+               > (atual["recebido_em"] or "")
+        ):
+            escolhidos[dados["documento_id"]] = dados
+
     return escolhidos
 
 

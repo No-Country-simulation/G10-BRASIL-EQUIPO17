@@ -12,6 +12,7 @@ e `baseline_dia1/categorias.json` do monorepo.
 """
 
 import os
+from pathlib import Path
 
 # --------------------------------------------------------------------------- #
 # Ligação à API FastAPI
@@ -30,7 +31,7 @@ ENDPOINTS = {
     # 2) POST .../processar -> ResultadoTriagem
     "upload": "/v1/triagens/arquivos",
     "process": "/v1/triagens/arquivos/{doc_id}/{file_id}/processar",
-    # Contrato v0.1; a API principal ainda responde 501 e as composições locais não a expõem.
+    # POST EntradaTexto -> ResultadoTriagem (api/triage_text.py); só nas apps locais, a API principal responde 501.
     "triage_text": "/v1/triagens/texto",
     # Só nas apps locais (api/triage_review.py); sem elas, a UI usa o histórico da sessão.
     "triage": "/v1/triagens/{doc_id}",              # GET ResultadoTriagem
@@ -55,6 +56,13 @@ SIMULATED_MODES = {"Gemini local", "Demonstração (fixtures)"}
 ACCEPTED_FILE_TYPES = ["pdf", "png", "jpg", "jpeg"]
 MAX_UPLOAD_MB = 10  # limite proposto no contrato v0.1 (10 MiB)
 MAX_PDF_PAGES = 10  # idem: PDFs de até 10 páginas
+# Textos das amostras sintéticas oficiais (aba "Texto livre"): as APIs locais só processam estes.
+SAMPLE_TEXTS_DIR = Path(__file__).resolve().parents[3] / "amostras" / "texto"
+SAMPLE_TEXTS = {
+    "Rotina (DOC-001)": "DOC-001_laudo_laboratorial_rotina.txt",
+    "Alerta (DOC-002)": "DOC-002_laudo_imagem_alerta.txt",
+    "Ambiguidade (DOC-005)": "DOC-005_receita_ilegivel.txt",
+}
 # Assinatura binária esperada no início de cada formato (o contrato pede validar MIME, assinatura e tamanho).
 FILE_SIGNATURES = {"pdf": (b"%PDF-",), "png": (b"\x89PNG\r\n\x1a\n",), "jpg": (b"\xff\xd8\xff",), "jpeg": (b"\xff\xd8\xff",)}
 
@@ -167,5 +175,5 @@ DONE_STATUSES = ("processed", "approved", "corrected")
 DASHBOARD_REFRESH = "30s"
 
 # Abaixo deste valor do indicador de qualidade o documento é destacado.
-# No contrato v0.1 o indicador vem `null` (não calculado) e não é calibrado.
-LOW_CONFIDENCE_THRESHOLD = 0.70
+# Mesmo padrão do motor (rules/validacao.yaml); heurística v0, não calibrada.
+LOW_CONFIDENCE_THRESHOLD = 0.75

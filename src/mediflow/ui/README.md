@@ -32,7 +32,7 @@ $env:GEMINI_API_KEY = "<chave do Google AI Studio>"   # nunca commitar
 .\.venv\Scripts\python.exe -m streamlit run src/mediflow/ui/app.py
 ```
 
-A barra lateral mostra o modo da API conectada (Demonstração, Gemini local ou API principal).
+A barra lateral mostra se a API está conectada e avisa quando o modo é simulado (FakeOCI em memória).
 As duas composições locais **só processam as amostras oficiais** de `amostras/`
 (`DOC-001`, `DOC-002`, `DOC-005`) com o nome de arquivo original. O DOC-005 é imagem e
 exige o Tesseract OCR instalado no sistema.
@@ -71,7 +71,7 @@ canônica do contrato.
 | GET  | `/gemini/estado`, `/demo/estado`, `/health` | indicador de conexão e modo | implementado (um por app) |
 | POST | `/v1/triagens/arquivos` | 1ª etapa do envio: multipart `documento_id`, `canal_origem`, `arquivo` → `ReciboArquivo` | implementado |
 | POST | `/v1/triagens/arquivos/{documento_id}/{arquivo_id}/processar` | 2ª etapa: → `ResultadoTriagem` | implementado nas apps locais |
-| POST | `/v1/triagens/texto` | aba "Colar texto" | API principal responde 501; ausente nas apps locais |
+| POST | `/v1/triagens/texto` | aba "Texto livre" (`EntradaTexto` → `ResultadoTriagem`); botões carregam as amostras de `amostras/texto/` | implementado nas apps locais (só textos das amostras oficiais); API principal responde 501 |
 | GET  | `/v1/triagens/{documento_id}` | página Resultado | implementado nas apps locais |
 | GET  | `/v1/triagens?status=` | Visão geral e Fila de auditoria | implementado nas apps locais |
 | POST | `/v1/triagens/{documento_id}/revisao` | decisão do auditor (`aprovar`, `corrigir`, `rejeitar`) | implementado nas apps locais |
@@ -87,6 +87,29 @@ gravada como objeto imutável em `revisoes/{documento_id}/…json`; o resultado 
 alterado e as correções do auditor ficam só no registro da revisão. Como o armazenamento é a
 FakeOCI em memória, tudo some quando a API é reiniciada.
 
-Contra a API principal, que não tem essas rotas, a UI volta a usar os `ResultadoTriagem` que
-**a própria API devolveu nesta sessão** do navegador, e a decisão do auditor mostra um erro
-explicando que a API não registra revisões.
+Contra uma API sem essas rotas (a principal ou a H16), a UI volta a usar os `ResultadoTriagem` que
+**a própria API devolveu nesta sessão** do navegador, e deixa isso explícito:
+
+- A Visão geral e a Fila de auditoria mostram o aviso **"Dados desta sessão do navegador"**, para
+  não confundir com histórico permanente.
+- Cada resultado guardado na sessão recebe `ui_registrado_em_utc`, a hora (UTC) em que **a interface**
+  o recebeu. Esse horário só é usado quando a API não informa `recebido_em`, e aparece marcado com
+  `*` ("registrado pela interface"). Assim os filtros **Hoje**, **24 h** e **7 dias** funcionam também
+  nesse modo.
+- A revisão humana aparece como **"ainda não integrada nesta API"**, com os botões de aprovar e
+  rejeitar desabilitados. Documentos, filtros, prioridades e evidências continuam visíveis.
+
+Os testes offline da interface ficam em `tests/test_ui_interface.py`.
+
+
+### Isolamento de resultados por API
+
+Os resultados temporarios da sessao sao separados pela URL
+do backend. Trocar de API nao mistura documentos entre servidores.
+
+O ultimo resultado utilizado nas telas tambem possui vinculo
+com a URL de origem. Resultados antigos sem origem identificada
+nao sao reutilizados pelo novo mecanismo.
+
+Este armazenamento continua restrito a sessao Streamlit.
+Nao representa historico permanente nem autenticacao de usuarios.

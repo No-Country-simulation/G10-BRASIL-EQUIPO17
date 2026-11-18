@@ -80,7 +80,8 @@ def test_tres_cenarios_http_offline_e_leitura_de_resultado(ambiente, doc_id):
     assert resultado.armazenamento_oci.status == "confirmado"
     assert resultado.armazenamento_oci.bucket == "FAKEOCI-H16-TEST"
     assert resultado.entrada.sha256 == recibo["entrada"]["sha256"]
-    assert len(fake.objetos) == 4
+    assert len(fake.objetos) == 5
+    assert any(c.startswith(("processados/", "auditoria_humana/")) for c in fake.objetos)
     assert ResultadoTriagem.model_validate_json(
         fake.objetos[resultado.armazenamento_oci.chave_resultado]) == resultado
     if doc_id == "DOC-005":
