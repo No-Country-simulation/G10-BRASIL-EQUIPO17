@@ -95,12 +95,24 @@ def _rules(decision: dict) -> list[dict]:
     return [{"id": rid, "main": rid == main, **RULES.get(rid, {"name": rid})} for rid in ordered]
 
 
-def _received_at(raw: dict) -> str | None:
-    """Hora de receção: o primeiro evento com data (ou o campo da extensão da UI)."""
+# Hora registada pela própria interface (api_client.UI_RECEIVED_KEY).
+_UI_RECEIVED_KEY = "ui_registrado_em_utc"
+
+
+def _received_at(raw: dict) -> tuple[str | None, str | None]:
+    """(hora, origem). Origem "api" para dados do backend; "interface" para o fallback da UI.
+
+    Ordem: evento com data, `recebido_em` da API e, só então, a hora em que a
+    interface recebeu o resultado (sinalizada como tal, nunca como data do backend).
+    """
     for event in map(_d, _l(raw.get("eventos"))):
         if event.get("timestamp_utc"):
-            return event["timestamp_utc"]
-    return raw.get("recebido_em")
+            return event["timestamp_utc"], "api"
+    if raw.get("recebido_em"):
+        return raw["recebido_em"], "api"
+    if raw.get(_UI_RECEIVED_KEY):
+        return raw[_UI_RECEIVED_KEY], "interface"
+    return None, None
 
 
 def normalize_document(raw: dict | None) -> dict:
@@ -127,6 +139,7 @@ def normalize_document(raw: dict | None) -> dict:
     if isinstance(review, dict) and review.get("acao") in REVIEW_STATUSES:
         status = REVIEW_STATUSES[review["acao"]]
 
+    received_at, received_source = _received_at(raw)
     doc_type = classification.get("tipo_documento")
     destination = decision.get("destino_principal")
     channel = entry.get("canal_origem")
@@ -135,7 +148,8 @@ def normalize_document(raw: dict | None) -> dict:
     return {
         "id": str(raw.get("documento_id") or "—"),
         "filename": filename,
-        "received_at": _received_at(raw),
+        "received_at": received_at,
+        "received_at_source": received_source,
         "status": status,
         "priority": _PRIORITY_FROM_CONTRACT.get(classification.get("nivel_prioridade_documental"), "ambiguidade"),
         "destination": DESTINATIONS.get(destination, destination or "—"),

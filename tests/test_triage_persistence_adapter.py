@@ -127,7 +127,8 @@ def test_pipeline_i1_i5_persiste_dois_objetos(doc, regra, esperado):
     assert resultado.status == esperado
     assert resultado.decisao_roteamento.regra_principal == regra
     assert resultado.armazenamento_oci.status == "confirmado"
-    assert len(fake.gravacoes) == 2
+    assert len(fake.gravacoes) == 3
+    assert fake.gravacoes[2].startswith(("processados/", "auditoria_humana/"))
     assert fake.gravacoes[0].startswith(f"historicos/{doc}/{documento.arquivo_id}/")
     assert fake.gravacoes[1].startswith(f"resultados/{doc}/{documento.arquivo_id}/")
     assert all(fake.objetos[k] == v for k,v in originais.items())
@@ -237,7 +238,7 @@ def test_reprocessamento_gera_outra_execucao_sem_sobrescrever():
     r1 = servico.executar(documento, canal_origem=recibo.entrada.canal_origem)
     r2 = servico.executar(documento, canal_origem=recibo.entrada.canal_origem)
     assert r1.armazenamento_oci.chave_resultado != r2.armazenamento_oci.chave_resultado
-    assert len(fake.gravacoes) == 4
+    assert len(fake.gravacoes) == 6
 
 
 def test_colisao_execucao_id_rejeitada_preservando_objetos(monkeypatch):

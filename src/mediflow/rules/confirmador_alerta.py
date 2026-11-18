@@ -54,6 +54,8 @@ class ConfirmadorAlertaOriginal:
             texto = extrair_texto_pdf(documento.conteudo)
         elif documento.mime_type in {"image/png", "image/jpeg"}:
             texto = extrair_texto_imagem(documento.conteudo)
+        elif documento.mime_type == "text/plain":
+            texto = documento.conteudo.decode("utf-8")
         else:
             raise ValueError("Formato não suportado para confirmação de alerta.")
 

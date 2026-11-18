@@ -121,6 +121,30 @@ def test_ultima_revisao_prevalece(cliente):
     assert len([c for c in cliente_fakeoci.objetos if c.startswith("revisoes/DOC-002/")]) == 2
 
 
+def test_ultima_revisao_prevalece_com_relogio_parado(cliente, monkeypatch):
+    """No Windows o relogio repete valores; revisoes no mesmo instante nao podem empatar."""
+    from datetime import datetime, timezone
+
+    import mediflow.api.triage_review as modulo
+
+    instante = datetime(2026, 11, 18, 12, 0, 0, tzinfo=timezone.utc)
+
+    class RelogioParado(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return instante
+
+    processar(cliente, "DOC-002")
+    monkeypatch.setattr(modulo, "datetime", RelogioParado)
+    for acao in ("aprovar", "rejeitar", "aprovar", "rejeitar", "aprovar"):
+        extra = {"comentario": "motivo sintetico"} if acao == "rejeitar" else {}
+        assert revisar(cliente, "DOC-002", acao=acao, **extra).status_code == 201
+        assert cliente.get("/v1/triagens/DOC-002").json()["revisao_humana"]["acao"] == acao
+
+    chaves = sorted(c for c in cliente_fakeoci.objetos if c.startswith("revisoes/DOC-002/"))
+    assert len({c.rsplit("/", 1)[1][:22] for c in chaves}) == 5
+
+
 @pytest.mark.parametrize(
     "payload",
     [
@@ -166,3 +190,223 @@ def test_api_principal_nao_expoe_revisao():
     with TestClient(app_principal) as c:
         assert c.get("/v1/triagens").status_code in {404, 405}
         assert c.post("/v1/triagens/DOC-005/revisao", json={}).status_code in {404, 405}
+
+
+@pytest.mark.parametrize(
+    ("doc_id", "prefixo"),
+    [
+        ("DOC-001", "processados/"),
+        ("DOC-005", "auditoria_humana/"),
+    ],
+)
+def test_resultado_sem_indice_nao_e_consultavel(
+    cliente, doc_id, prefixo
+):
+    relativo, mime = ARQUIVOS[doc_id]
+    arquivo = RAIZ / relativo
+
+    upload = cliente.post(
+        "/v1/triagens/arquivos",
+        data={
+            "documento_id": doc_id,
+            "canal_origem": "demo_local",
+        },
+        files={
+            "arquivo": (
+                arquivo.name,
+                arquivo.read_bytes(),
+                mime,
+            )
+        },
+    )
+
+    assert upload.status_code == 201
+    recibo = upload.json()
+
+    cliente_fakeoci.falhar_prefixo = prefixo
+
+    resposta = cliente.post(
+        f"/v1/triagens/arquivos/{doc_id}/"
+        f"{recibo['arquivo_id']}/processar"
+    )
+
+    assert resposta.status_code == 502
+    assert any(
+        k.startswith("resultados/")
+        for k in cliente_fakeoci.objetos
+    )
+    assert not any(
+        k.startswith(prefixo)
+        for k in cliente_fakeoci.objetos
+    )
+
+    assert cliente.get("/v1/triagens").json() == []
+    assert cliente.get(
+        f"/v1/triagens/{doc_id}"
+    ).status_code == 404
+
+    if doc_id == "DOC-005":
+        assert revisar(
+            cliente, doc_id
+        ).status_code == 404
+
+
+def test_indice_incoerente_bloqueia_consulta(cliente):
+    processar(cliente, "DOC-005")
+
+    chave = next(
+        k for k in cliente_fakeoci.objetos
+        if k.startswith("auditoria_humana/")
+    )
+
+    indice = json.loads(cliente_fakeoci.objetos[chave])
+    indice["chave_resultado"] = "resultado-inexistente"
+    cliente_fakeoci.objetos[chave] = json.dumps(
+        indice
+    ).encode("utf-8")
+
+    assert cliente.get("/v1/triagens").json() == []
+    assert cliente.get(
+        "/v1/triagens/DOC-005"
+    ).status_code == 404
+
+
+def test_resultado_h16_legado_continua_consultavel(cliente):
+    resultado = processar(cliente, "DOC-001")
+    chave_historico = (
+        resultado["armazenamento_oci"]["chave_historico"]
+    )
+
+    historico = json.loads(
+        cliente_fakeoci.objetos[chave_historico]
+    )
+    assert "chave_indice_status" in historico
+
+    # Reconstroi exclusivamente em memoria o formato
+    # utilizado antes da introducao dos indices.
+    historico.pop("chave_indice_status")
+    cliente_fakeoci.objetos[chave_historico] = json.dumps(
+        historico
+    ).encode("utf-8")
+
+    chave_indice = next(
+        k for k in cliente_fakeoci.objetos
+        if k.startswith("processados/")
+    )
+    del cliente_fakeoci.objetos[chave_indice]
+
+    consulta = cliente.get("/v1/triagens/DOC-001")
+
+    assert consulta.status_code == 200
+    assert consulta.json()["status"] == "processado"
+
+
+@pytest.mark.parametrize(
+    "prefixo",
+    ["historicos/", "processados/"],
+)
+def test_falha_leitura_persistencia_retorna_502(
+    cliente, monkeypatch, prefixo
+):
+    processar(cliente, "DOC-001")
+
+    leitura_original = cliente_fakeoci.get_object
+
+    def leitura_com_falha(namespace, bucket, nome):
+        if nome.startswith(prefixo):
+            raise TimeoutError("SEGREDO_OCI_SIMULADO")
+        return leitura_original(namespace, bucket, nome)
+
+    monkeypatch.setattr(
+        cliente_fakeoci,
+        "get_object",
+        leitura_com_falha,
+    )
+
+    for endpoint in (
+        "/v1/triagens",
+        "/v1/triagens/DOC-001",
+    ):
+        resposta = cliente.get(endpoint)
+
+        assert resposta.status_code == 502
+        assert (
+            resposta.json()["detail"]["codigo"]
+            == "ARMAZENAMENTO_INDISPONIVEL"
+        )
+        assert "SEGREDO_OCI_SIMULADO" not in resposta.text
+
+
+def test_reprocessamento_nao_herda_revisao_anterior(cliente):
+    primeira = processar(cliente, "DOC-005")
+    chave_a = primeira["armazenamento_oci"]["chave_resultado"]
+
+    revisao_a = revisar(
+        cliente,
+        "DOC-005",
+        comentario="Revisao sintetica da execucao A",
+    )
+    assert revisao_a.status_code == 201, revisao_a.text
+
+    registro_a = revisao_a.json()["revisao_humana"]
+    assert registro_a["chave_resultado"] == chave_a
+
+    chave_revisao_a = next(
+        chave
+        for chave in cliente_fakeoci.objetos
+        if chave.startswith("revisoes/DOC-005/")
+    )
+    bytes_revisao_a = cliente_fakeoci.objetos[chave_revisao_a]
+
+    segunda = processar(cliente, "DOC-005")
+    chave_b = segunda["armazenamento_oci"]["chave_resultado"]
+
+    assert chave_a != chave_b
+
+    consulta = cliente.get("/v1/triagens/DOC-005")
+    assert consulta.status_code == 200, consulta.text
+
+    resultado_atual = consulta.json()
+    assert (
+        resultado_atual["armazenamento_oci"]["chave_resultado"]
+        == chave_b
+    )
+    assert resultado_atual["revisao_humana"] is None
+
+    fila = cliente.get(
+        "/v1/triagens",
+        params={"status": "aguardando_auditoria"},
+    )
+    assert fila.status_code == 200
+
+    item = next(
+        doc for doc in fila.json()
+        if doc["documento_id"] == "DOC-005"
+    )
+    assert item["revisao_humana"] is None
+
+    revisao_b = revisar(
+        cliente,
+        "DOC-005",
+        comentario="Revisao sintetica da execucao B",
+    )
+    assert revisao_b.status_code == 201, revisao_b.text
+    assert (
+        revisao_b.json()["revisao_humana"]["chave_resultado"]
+        == chave_b
+    )
+
+    consulta_final = cliente.get("/v1/triagens/DOC-005")
+    assert consulta_final.status_code == 200
+    assert (
+        consulta_final.json()["revisao_humana"]["chave_resultado"]
+        == chave_b
+    )
+
+    assert cliente_fakeoci.objetos[chave_revisao_a] == bytes_revisao_a
+
+    chaves_revisao = [
+        chave for chave in cliente_fakeoci.objetos
+        if chave.startswith("revisoes/DOC-005/")
+    ]
+    assert len(chaves_revisao) == 2

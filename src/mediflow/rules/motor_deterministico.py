@@ -6,6 +6,7 @@ em rules/validacao.yaml. Uso apenas educacional com documentos sintéticos.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Mapping
@@ -19,6 +20,7 @@ from mediflow_contracts.models import (
     EntradaProcessada,
     Evento,
     ExtracaoIA,
+    IndicadorQualidade,
     RecuperacaoRAG,
     ResultadoTriagem,
     Validacao,
@@ -48,6 +50,14 @@ _DESTINOS_PERMITIDOS = {
 }
 _PRIORIDADES = {"rotina", "possivel_urgencia", "indeterminada"}
 _TIPOS_ROTINA = {"laudo_laboratorial", "laudo_imagem", "relatorio_alta", "atestado"}
+_METODO_QUALIDADE = "heuristica_completude_consistencia_v0"
+# Pesos fixos da heurística v0 (soma = 1). Não é confiança clínica nem calibrada.
+_PESO_COMPLETUDE = 0.5
+_PESO_EVIDENCIAS = 0.3
+_PESO_CONSISTENCIA = 0.1
+_PESO_PROFISSIONAL = 0.1
+_LIMIAR_PADRAO = 0.75
+_INDICE = re.compile(r"\[\d+\]")
 
 
 def _ler_yaml(caminho: Path) -> dict:
@@ -163,7 +173,81 @@ def _carregar_configuracao(
     if encontrados != set(validacoes_esperadas):
         raise ValueError("Validações documentais incompletas.")
 
-    return mapa_regras, mapa_campos
+    qualidade = validacao.get("indicador_qualidade")
+    if qualidade is None:
+        limiar = _LIMIAR_PADRAO
+    else:
+        limiar = qualidade.get("limiar_revisao_humana") if isinstance(qualidade, dict) else None
+        if (
+            not isinstance(qualidade, dict)
+            or not isinstance(limiar, (int, float))
+            or isinstance(limiar, bool)
+            or not 0.5 <= float(limiar) <= 1.0
+            or qualidade.get("metodo") != _METODO_QUALIDADE
+        ):
+            # Limiar abaixo de 0,5 permitiria rotina sem nenhuma evidência ancorada.
+            raise ValueError("Limiar do indicador de qualidade inválido (0,5 a 1,0).")
+
+    return mapa_regras, mapa_campos, float(limiar)
+
+
+def _campo_tem_evidencia(campo: str, evidencias: set[str]) -> bool:
+    base = campo.removesuffix("[]")
+    return any(
+        e == campo or e == base or e.startswith(base + ".") or e.startswith(base + "[")
+        for e in evidencias
+    )
+
+
+def calcular_indicador_qualidade(
+    extracao: ExtracaoIA,
+    obrigatorios: tuple[str, ...],
+    ausentes: list[str],
+    ilegiveis: list[str],
+    conflitos: list[str],
+) -> IndicadorQualidade:
+    """Heurística v0 de completude e consistência DOCUMENTAL da extração.
+
+    Combina: campos mínimos legíveis (50%), campos mínimos ancorados em
+    evidência textual do original (30%), ausência de conflitos (10%) e
+    profissional identificado (10%). Não é probabilidade, não é calibrado
+    e não mede gravidade clínica.
+    """
+    if extracao.tipo_documento == "outro_desconhecido" or not obrigatorios:
+        return IndicadorQualidade(
+            valor=0.0, metodo=_METODO_QUALIDADE,
+            criterios=["tipo_documento indeterminado: sem campos mínimos avaliáveis"],
+        )
+    total = len(obrigatorios)
+    problemas = {_INDICE.sub("[]", c) for c in (*ausentes, *ilegiveis, *conflitos)}
+    sem_medicamentos = "medicamentos[]" in problemas
+    legiveis = sum(
+        1 for c in obrigatorios
+        if c not in problemas and not (sem_medicamentos and c.startswith("medicamentos[]"))
+    )
+    campos_evidencia = {_INDICE.sub("[]", e.campo) for e in extracao.evidencias}
+    ancorados = sum(1 for c in obrigatorios if _campo_tem_evidencia(c, campos_evidencia))
+    sem_conflito = not conflitos
+    profissional = bool(
+        extracao.dados_extraidos.profissional.nome
+        and extracao.dados_extraidos.profissional.nome.strip()
+    )
+    valor = (
+        _PESO_COMPLETUDE * legiveis / total
+        + _PESO_EVIDENCIAS * ancorados / total
+        + _PESO_CONSISTENCIA * sem_conflito
+        + _PESO_PROFISSIONAL * profissional
+    )
+    return IndicadorQualidade(
+        valor=round(valor, 2),
+        metodo=_METODO_QUALIDADE,
+        criterios=[
+            f"completude: {legiveis}/{total} campos mínimos legíveis (peso {_PESO_COMPLETUDE})",
+            f"evidencias: {ancorados}/{total} campos mínimos com trecho do original (peso {_PESO_EVIDENCIAS})",
+            f"consistencia: {'sem' if sem_conflito else 'com'} conflitos (peso {_PESO_CONSISTENCIA})",
+            f"profissional: {'identificado' if profissional else 'ausente'} (peso {_PESO_PROFISSIONAL})",
+        ],
+    )
 
 
 def _classificar_campos(
@@ -238,13 +322,15 @@ class MotorRegrasDeterministico:
     arquivo_validacao: Path = _ARQUIVO_VALIDACAO
     _regras: Mapping[str, dict] = field(init=False, repr=False)
     _campos: Mapping[str, tuple[str, ...]] = field(init=False, repr=False)
+    _limiar_qualidade: float = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        regras, campos = _carregar_configuracao(
+        regras, campos, limiar = _carregar_configuracao(
             Path(self.arquivo_roteamento), Path(self.arquivo_validacao)
         )
         object.__setattr__(self, "_regras", regras)
         object.__setattr__(self, "_campos", campos)
+        object.__setattr__(self, "_limiar_qualidade", limiar)
 
     def decidir(
         self,
@@ -262,11 +348,20 @@ class MotorRegrasDeterministico:
         ):
             raise TypeError("Parâmetros de decisão devem seguir os contratos v0.1.")
 
-        ausentes, ilegiveis, conflitos, avisos = _classificar_campos(
-            extracao, self._campos[extracao.tipo_documento]
-        )
+        obrigatorios = self._campos[extracao.tipo_documento]
+        ausentes, ilegiveis, conflitos, avisos = _classificar_campos(extracao, obrigatorios)
         incompleto = bool(ausentes or ilegiveis or conflitos)
-        suficiente = not incompleto and extracao.tipo_documento != "outro_desconhecido"
+        indicador = calcular_indicador_qualidade(
+            extracao, obrigatorios, ausentes, ilegiveis, conflitos
+        )
+        qualidade_baixa = indicador.valor < self._limiar_qualidade
+        # Fallback: indicador abaixo do limiar impede roteamento automático de
+        # rotina (R003-R005) e leva ao R006, que exige revisão humana.
+        suficiente = (
+            not incompleto
+            and not qualidade_baixa
+            and extracao.tipo_documento != "outro_desconhecido"
+        )
         sinais = {
             "marcador_urgencia_explicito_confirmado": alerta_textual_confirmado,
             "ambiguidade_critica": incompleto,
@@ -286,6 +381,29 @@ class MotorRegrasDeterministico:
 
         if alerta_textual_confirmado and incompleto:
             avisos.append("Ambiguidade documental concomitante; alerta prioritário mantido.")
+        fallback_qualidade = (
+            qualidade_baixa and not incompleto
+            and extracao.tipo_documento != "outro_desconhecido"
+        )
+        if fallback_qualidade:
+            avisos.append(
+                f"Indicador de qualidade {indicador.valor:.2f} abaixo do limiar "
+                f"{self._limiar_qualidade:.2f}; roteamento automático bloqueado para revisão humana."
+            )
+        eventos = [
+            Evento(codigo="INDICADOR_QUALIDADE", descricao=(
+                f"Indicador {indicador.valor:.2f} ({_METODO_QUALIDADE}); "
+                f"limiar de revisão humana {self._limiar_qualidade:.2f}."
+            )),
+        ]
+        if fallback_qualidade and principal["id"] == "R006":
+            eventos.append(Evento(
+                codigo="FALLBACK_QUALIDADE_BAIXA",
+                descricao="Indicador abaixo do limiar: documento encaminhado para revisão humana.",
+            ))
+        eventos.append(
+            Evento(codigo="REGRA_APLICADA", descricao=f"Regra {principal['id']} aplicada por precedência.")
+        )
 
         return ResultadoTriagem(
             documento_id=extracao.documento_id,
@@ -295,7 +413,8 @@ class MotorRegrasDeterministico:
                 tipo_documento=extracao.tipo_documento,
                 especialidade_texto=extracao.especialidade_texto,
                 nivel_prioridade_documental=principal["prioridade"],
-                # IndicadorQualidade permanece não calculado, nunca confiança inventada.
+                # Heurística documental explícita, não calibrada; nunca confiança clínica.
+                indicador_qualidade=indicador,
             ),
             dados_extraidos=extracao.dados_extraidos.model_copy(deep=True),
             evidencias=[e.model_copy(deep=True) for e in extracao.evidencias],
@@ -324,9 +443,7 @@ class MotorRegrasDeterministico:
                     )
                 ] if alerta_textual_confirmado else [],
             ),
-            eventos=[
-                Evento(codigo="REGRA_APLICADA", descricao=f"Regra {principal['id']} aplicada por precedência.")
-            ],
+            eventos=eventos,
         )
 
 
@@ -339,7 +456,7 @@ def validar_metadados_resultado(resultado: ResultadoTriagem) -> bool:
     if not isinstance(resultado, ResultadoTriagem):
         return False
 
-    regras, _ = _carregar_configuracao(
+    regras, _, _ = _carregar_configuracao(
         _ARQUIVO_ROTEAMENTO, _ARQUIVO_VALIDACAO
     )
     decisao = resultado.decisao_roteamento
