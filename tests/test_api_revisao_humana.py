@@ -166,3 +166,78 @@ def test_api_principal_nao_expoe_revisao():
     with TestClient(app_principal) as c:
         assert c.get("/v1/triagens").status_code in {404, 405}
         assert c.post("/v1/triagens/DOC-005/revisao", json={}).status_code in {404, 405}
+
+
+def test_reprocessamento_nao_herda_revisao_anterior(cliente):
+    primeira = processar(cliente, "DOC-005")
+    chave_a = primeira["armazenamento_oci"]["chave_resultado"]
+
+    revisao_a = revisar(
+        cliente,
+        "DOC-005",
+        comentario="Revisao sintetica da execucao A",
+    )
+    assert revisao_a.status_code == 201, revisao_a.text
+
+    registro_a = revisao_a.json()["revisao_humana"]
+    assert registro_a["chave_resultado"] == chave_a
+
+    chave_revisao_a = next(
+        chave
+        for chave in cliente_fakeoci.objetos
+        if chave.startswith("revisoes/DOC-005/")
+    )
+    bytes_revisao_a = cliente_fakeoci.objetos[chave_revisao_a]
+
+    segunda = processar(cliente, "DOC-005")
+    chave_b = segunda["armazenamento_oci"]["chave_resultado"]
+
+    assert chave_a != chave_b
+
+    consulta = cliente.get("/v1/triagens/DOC-005")
+    assert consulta.status_code == 200, consulta.text
+
+    resultado_atual = consulta.json()
+    assert (
+        resultado_atual["armazenamento_oci"]["chave_resultado"]
+        == chave_b
+    )
+    assert resultado_atual["revisao_humana"] is None
+
+    fila = cliente.get(
+        "/v1/triagens",
+        params={"status": "aguardando_auditoria"},
+    )
+    assert fila.status_code == 200
+
+    item = next(
+        doc for doc in fila.json()
+        if doc["documento_id"] == "DOC-005"
+    )
+    assert item["revisao_humana"] is None
+
+    revisao_b = revisar(
+        cliente,
+        "DOC-005",
+        comentario="Revisao sintetica da execucao B",
+    )
+    assert revisao_b.status_code == 201, revisao_b.text
+    assert (
+        revisao_b.json()["revisao_humana"]["chave_resultado"]
+        == chave_b
+    )
+
+    consulta_final = cliente.get("/v1/triagens/DOC-005")
+    assert consulta_final.status_code == 200
+    assert (
+        consulta_final.json()["revisao_humana"]["chave_resultado"]
+        == chave_b
+    )
+
+    assert cliente_fakeoci.objetos[chave_revisao_a] == bytes_revisao_a
+
+    chaves_revisao = [
+        chave for chave in cliente_fakeoci.objetos
+        if chave.startswith("revisoes/DOC-005/")
+    ]
+    assert len(chaves_revisao) == 2
