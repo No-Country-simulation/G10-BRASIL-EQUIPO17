@@ -7,7 +7,7 @@ entre si. O corpo corre num fragmento com atualização automática.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import partial
 
 import altair as alt
@@ -25,7 +25,7 @@ from mediflow.ui.navigation import go_to
 from mediflow.ui.text_metrics import centered_block_pad
 
 # Períodos do seletor: rótulo -> duração ("today" = desde a meia-noite; None = todo o histórico).
-PERIODS = {"Hoje": "today", "24 h": pd.Timedelta(hours=24), "7 dias": pd.Timedelta(days=7), "Tudo": None}
+PERIODS = {"Hoje": "today", "24 h": timedelta(hours=24), "7 dias": timedelta(days=7), "Tudo": None}
 COMPARE_LABEL = {"Hoje": "ontem no mesmo horário", "24 h": "as 24 h anteriores", "7 dias": "os 7 dias anteriores"}
 
 PRIORITY_RANK = {"urgente": 0, "ambiguidade": 1, "rotina": 2}
@@ -64,7 +64,7 @@ def _windows(period: str, now: pd.Timestamp):
     if span is None:
         return None, None, None
     start = now.normalize() if span == "today" else now - span
-    prev_start = start - (pd.Timedelta(days=1) if span == "today" else span)
+    prev_start = start - (timedelta(days=1) if span == "today" else span)
     return start, prev_start, prev_start + (now - start)
 
 
