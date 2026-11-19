@@ -7,6 +7,7 @@ auditoria com dados da sessão e ausência de confiança artificial.
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -148,7 +149,7 @@ AGORA = pd.Timestamp("2026-11-17 15:00:00")
 
 def _docs():
     horas = {"agora": 0, "manha": 6, "ontem_noite": 20, "tres_dias": 72, "dez_dias": 240}
-    return [{"id": k, "ts": AGORA - pd.Timedelta(hours=h)} for k, h in horas.items()] + [{"id": "sem_data", "ts": None}]
+    return [{"id": k, "ts": AGORA - timedelta(hours=h)} for k, h in horas.items()] + [{"id": "sem_data", "ts": None}]
 
 
 @pytest.mark.parametrize("periodo,esperado", [
@@ -164,7 +165,7 @@ def test_filtros_temporais(periodo, esperado):
 
 def test_janela_anterior_tem_a_mesma_duracao():
     inicio, ant_inicio, ant_fim = _windows("24 h", AGORA)
-    assert inicio - ant_inicio == pd.Timedelta(hours=24) and ant_fim == inicio
+    assert inicio - ant_inicio == timedelta(hours=24) and ant_fim == inicio
 
 
 def test_documento_da_sessao_aparece_em_hoje(monkeypatch):
@@ -173,7 +174,7 @@ def test_documento_da_sessao_aparece_em_hoje(monkeypatch):
     api_client._remember(exemplo("DOC-001"))
     docs = MediFlowClient(BASE).list_documents()
     doc = normalize_document(docs[0])
-    agora = pd.Timestamp.now().floor("s") + pd.Timedelta(seconds=1)
+    agora = pd.Timestamp.now().floor("s") + timedelta(seconds=1)
     inicio, _, _ = _windows("Hoje", agora)
     assert doc["received_at_source"] == "interface"
     assert _between([{**doc, "ts": parse_ts(doc["received_at"])}], inicio, agora)
