@@ -24,6 +24,7 @@ O **MediFlow** é um protótipo educacional para receber documentos de saúde **
 - [Executar a demonstração local](#executar-a-demonstração-local)
 - [Modos de API e endpoints](#modos-de-api-e-endpoints)
 - [Contratos, regras e persistência](#contratos-regras-e-persistência)
+- [Diferenças em relação ao exemplo do edital](#diferenças-em-relação-ao-exemplo-do-edital)
 - [Testes e evidências](#testes-e-evidências)
 - [Segurança e limitações](#segurança-e-limitações)
 - [Próximas etapas](#próximas-etapas)
@@ -63,14 +64,15 @@ flowchart TB
     RAG --> GRAPH["LangGraph + motor determinístico<br/>R001 a R006"]
     GRAPH --> PERSIST["Persistência de resultado e histórico<br/>FakeOCI na demonstração"]
     PERSIST --> JSON["ResultadoTriagem v0.1<br/>JSON validado por Pydantic"]
-    OCI[("OCI Object Storage real<br/>H09: homologação isolada")] -.->|Teste isolado H09| PERSIST
+    OCI[("OCI Object Storage real<br/>bucket dev, modo H16")] -.->|H16: original, histórico,<br/>resultado e revisões| PERSIST
 ```
 
 **O que é real em cada execução:**
 
 - **Demonstração local:** FastAPI, integridade, orquestração, confirmador, RAG, motor e LangGraph são implementações reais locais; extração utiliza os JSONs de referência; persistência utiliza FakeOCI **volátil em memória**.
 - **Homologação Gemini local:** mesma orquestração, com extrator Gemini **injetável** e protegido por autorização explícita; os testes automatizados usam um extrator controlado e **não fazem chamadas externas**; persistência permanece FakeOCI.
-- **Homologação OCI H09:** o SDK e o Object Storage reais gravaram e leram **quatro objetos** de um cenário sintético, usando **resultado de fixture**. Essa evidência não comprova o fluxo HTTP completo.
+- **Homologação OCI H09:** o SDK e o Object Storage reais gravaram e leram **quatro objetos** de um cenário sintético, usando **resultado de fixture**. Essa evidência isolada não comprova o fluxo HTTP completo.
+- **H16 Gemini + OCI dev:** fluxo HTTP completo com Gemini real e o bucket OCI de desenvolvimento `mediflow-docs-dev`, protegido por consentimentos explícitos. Os três cenários foram homologados com **12 objetos auditados**; a gravação da revisão humana nesse bucket ainda não foi homologada.
 
 O armazenamento confirmado no JSON da demonstração **não significa** que um objeto tenha sido enviado à Oracle Cloud.
 
@@ -291,7 +293,7 @@ O script registra **3/3 cenários** e gera `docs/evidencias/h14_demonstracao_loc
 
 ## Modos de API e endpoints
 
-O projeto contém **três aplicações FastAPI distintas**. Elas não são intercambiáveis e não devem ser publicadas sem autenticação/autorização.
+O projeto contém **quatro aplicações FastAPI distintas**. Elas não são intercambiáveis e não devem ser publicadas sem autenticação/autorização.
 
 | Aplicação | Inicialização | O que faz | Limitação |
 |---|---|---|---|
@@ -365,14 +367,55 @@ bucket/
 ├── historicos/<documento_id>/<arquivo_id>/<execucao_id>.json
 ├── resultados/<documento_id>/<arquivo_id>/<execucao_id>.json
 ├── processados/<destino>/<documento_id>/<arquivo_id>/<execucao_id>.json
-└── auditoria_humana/<destino>/<documento_id>/<arquivo_id>/<execucao_id>.json
+├── auditoria_humana/<destino>/<documento_id>/<arquivo_id>/<execucao_id>.json
+└── revisoes/<documento_id>/<revisao_id>.json
 ```
 
-**Segregação por status:** `originais/` guarda os documentos **recebidos**. Depois de confirmar histórico e resultado, a persistência grava um **índice por status e destino**: `processados/` para roteamento automático (ex.: `processados/prontuario_documental/...`) e `auditoria_humana/` para tudo que exige revisão humana, inclusive a fila prioritária (ex.: `auditoria_humana/fila_prioritaria_avaliacao_humana/...`). O índice aponta para as chaves do original, do resultado e do histórico. Se a gravação do índice falhar, a persistência **não** é confirmada.
+**Segregação por status:** `originais/` guarda os documentos **recebidos**. Depois de confirmar histórico e resultado, a persistência grava um **índice por status e destino**: `processados/` para roteamento automático (ex.: `processados/prontuario_documental/...`) e `auditoria_humana/` para tudo que exige revisão humana, inclusive a fila prioritária (ex.: `auditoria_humana/fila_prioritaria_avaliacao_humana/...`). O índice aponta para as chaves do original, do resultado e do histórico. Se a gravação do índice falhar, a persistência **não** é confirmada. Cada decisão de revisão humana é gravada como objeto imutável em `revisoes/`, sem alterar o resultado original.
 
-O upload gera um `arquivo_id` por recebimento; a persistência gera um `execucao_id` por processamento. A escrita de histórico e resultado utiliza criação condicional, leitura de retorno e verificação de integridade. **Falha parcial não é sucesso** e pode exigir reconciliação operacional; não há limpeza destrutiva automática. Reprocessar um documento pode criar outra execução: **a API demonstrativa não oferece idempotência nem consulta pública de resultados já processados**.
+O upload gera um `arquivo_id` por recebimento; a persistência gera um `execucao_id` por processamento. A escrita de histórico e resultado utiliza criação condicional, leitura de retorno e verificação de integridade. **Falha parcial não é sucesso** e pode exigir reconciliação operacional; não há limpeza destrutiva automática. Reprocessar um documento pode criar outra execução: **as APIs locais não oferecem idempotência**. A consulta `GET /v1/triagens/{documento_id}` devolve apenas o último resultado de cada documento e só existe nas aplicações locais, sem autenticação.
 
 O critério **H09** documenta uma execução **real controlada** no Object Storage em 08/11/2026, com quatro objetos associados ao DOC-001 sintético e decisão proveniente de fixture. Consulte [evidência H09](docs/17_homologacao_h09_persistencia_oci_real.md). O script [`scripts/homologar_h09_oci_real.py`](scripts/homologar_h09_oci_real.py) possui um **modo de planejamento sem gravação**; executar com `--execute` escreve novos objetos reais e exige autorização explícita, validação de credenciais e avaliação dos limites/custos OCI.
+
+## Diferenças em relação ao exemplo do edital
+
+O edital mostra um exemplo de requisição e de resposta (caso de TEP agudo). O MediFlow atende aos mesmos requisitos, mas **muda de propósito alguns nomes e campos** para não produzir informação clínica que o documento não contém. A tabela abaixo indica, para cada campo do exemplo, onde a informação aparece no `ResultadoTriagem` v0.1 e por que mudou.
+
+### Requisição
+
+| Campo do edital | No MediFlow | Motivo |
+|---|---|---|
+| `documento_id` | `documento_id` (mesmo nome) | — |
+| `documento_texto` | `documento_texto` em `POST /v1/triagens/texto` | — |
+| `canal_origem` | `canal_origem` (mesmo nome) | — |
+| `tipo_arquivo` | **Aceito, mas ignorado** (opcional, até 20 caracteres). O tipo real vem do servidor em `entrada.tipo_entrada` (`texto`, `pdf`, `png`, `jpeg`); no upload, ele é deduzido pela extensão e conferido com o MIME e a assinatura do arquivo | Não confiar no tipo declarado pelo cliente. O campo existe só para que o JSON do exemplo do edital seja aceito sem erro; qualquer outro campo desconhecido continua retornando **422** |
+
+PDF e imagem não chegam como texto no JSON: são enviados por upload (`multipart/form-data`) e processados depois pelo `documento_id`/`arquivo_id` (ver [Executar a demonstração local](#executar-a-demonstração-local)).
+
+### Resposta
+
+| Campo do edital | No MediFlow | Motivo |
+|---|---|---|
+| `status: "processado"` | `status`: `processado` (roteamento automático) ou `aguardando_auditoria` (qualquer caso com revisão humana, inclusive alerta) | Um documento com alerta não é "processado": ele aguarda uma pessoa |
+| `classificacao.tipo_documento: "Laudo de Exame de Imagem"` | `classificacao.tipo_documento: "laudo_imagem"` (lista fechada: `receituario`, `laudo_laboratorial`, `laudo_imagem`, `solicitacao_exame`, `relatorio_alta`, `atestado`, `outro_desconhecido`) | Valores canônicos que as regras e os testes podem comparar sem ambiguidade |
+| `classificacao.especialidade` | `classificacao.especialidade_texto` | Apenas transcrita quando aparece no documento; senão fica `null` |
+| `classificacao.nivel_prioridade: "Urgente"` | `classificacao.nivel_prioridade_documental`: `rotina`, `possivel_urgencia` ou `indeterminada` | O sistema não faz avaliação clínica. Ele só registra que o **texto** traz um marcador de alerta, confirmado no original |
+| `classificacao.score_confianca_classificacao: 0.99` | `classificacao.indicador_qualidade` (`valor` 0–1, `metodo`, `criterios`, `calibrado: false`) | A LLM não fornece probabilidade calibrada. O indicador mede completude, evidências e consistência da extração e, abaixo de 0,75, desvia o documento para revisão humana (ver [Score de qualidade](#score-de-qualidade-e-fallback-para-revisão-humana)) |
+| `dados_extraidos.paciente` | `dados_extraidos.paciente` (`nome`, `idade`, `identificador` e o estado de cada campo: `legivel`, `ausente`, `ilegivel`, `conflitante`) | O estado do campo permite mandar para auditoria em vez de adivinhar |
+| `dados_extraidos.medico_solicitante` (`nome`, `crm`) | `dados_extraidos.profissional` (`nome`, `crm_texto`) | O CRM é apenas transcrito; não há validação no conselho |
+| `dados_extraidos.exame_realizado` | `dados_extraidos.exame.nome` (mais `achados`, `conclusao` e `resultados`) | Estrutura comum a laudos de imagem e laboratoriais |
+| `dados_extraidos.diagnostico_principal` | `dados_extraidos.exame.conclusao` (texto literal do laudo) | O sistema **não formula diagnóstico**; repete o que o documento diz |
+| `dados_extraidos.cid_sugerido: "I26.9"` | `dados_extraidos.cid_documentado` (somente se o CID estiver escrito no documento; senão `null`) | **Sugerir CID é codificação clínica.** O MediFlow não cria CID por inferência |
+| `decisao_roteamento.destino_principal: "Fila_Emergencia_Medica"` | `decisao_roteamento.destino_principal`, um destes: `fila_prioritaria_avaliacao_humana`, `auditoria_humana`, `auditoria_autorizacoes`, `fila_farmacia_documental`, `prontuario_documental`, `fila_erros_tecnicos` | As filas são administrativas e simuladas. A "emergência" vira fila **prioritária de avaliação humana**: quem decide a conduta é uma pessoa |
+| `decisao_roteamento.requer_auditoria_humana: false` | `decisao_roteamento.requer_revisao_humana` | No caso de alerta, o valor é **`true`**: um achado crítico nunca segue sem revisão humana |
+| `decisao_roteamento.justificativa_roteamento` | `decisao_roteamento.justificativa`, mais `regra_principal` (R001–R006), `regras_disparadas` e `versao_regras` | A decisão fica auditável e pode ser reproduzida pela regra versionada |
+| `decisao_roteamento.notificacao_gerada` (`canal`, `mensagem`) | `decisao_roteamento.alertas` (`codigo`, `mensagem`), por exemplo `ALERTA_DOCUMENTAL` | O alerta fica registrado no resultado. **Não há envio real** (Slack, e-mail, plantão); esse diferencial não foi implementado |
+| `armazenamento_oci.bucket` | `armazenamento_oci.bucket` | — |
+| `armazenamento_oci.caminho_objeto: "processados/urgentes/…"` | `chave_original`, `chave_resultado` e `chave_historico`, mais um índice em `processados/<destino>/…` ou `auditoria_humana/<destino>/…` | Original, resultado e histórico ficam separados e com integridade verificada (ver [Organização dos objetos](#organização-dos-objetos-no-armazenamento)) |
+| `armazenamento_oci.status_backup: "sucesso"` | `armazenamento_oci.status`: `pendente`, `confirmado` ou `falha` | Só vira `confirmado` depois da gravação **e** da releitura com sucesso; falha parcial nunca aparece como sucesso |
+| — | Campos a mais: `validacao` (campos ausentes, ilegíveis e conflitantes), `evidencias` (trecho literal e página), `rag` (fontes consultadas) e `eventos` (histórico da execução) | Rastreabilidade de cada decisão |
+
+**Resumo:** o exemplo do edital trata o sistema como alguém que diagnostica (CID sugerido, "Urgente", fila de emergência, envio direto sem revisão). O MediFlow faz a mesma triagem e o mesmo roteamento, mas como **ferramenta administrativa**: extrai o que está escrito, prioriza o que traz alerta confirmado no original e deixa toda decisão clínica para uma pessoa. Para ver o equivalente ao exemplo do edital, consulte o cenário DOC-002 (R001) em [`exemplos/DOC-002_resultado.json`](exemplos/DOC-002_resultado.json).
 
 ## Testes e evidências
 
@@ -396,11 +439,11 @@ git diff --check
 git diff --check
 ```
 
-**Referência de validação integrada do PR #54 (17/11/2026):** **574 testes offline aprovados e 3 deselecionados**, com compilação sem erros. A CI Python 3.12/3.13 do commit `32e7138` também foi aprovada. A contagem é relativa à integração do PR #54 com a `develop`, anterior ao merge definitivo.
+**Referência de validação (18/11/2026, branch `docs/referencia-entrega-main` sobre `c5933c8`):** **578 testes offline aprovados e 3 deselecionados** com `pytest -q -k "not fluxo_api_com_gemini_real"`, e compilação sem erros.
 
 **Documentos de evidência:**
 
-- [Critérios de homologação H01–H14](docs/16_criterios_homologacao_mvp.md)
+- [Critérios de homologação H01–H16](docs/16_criterios_homologacao_mvp.md)
 - [H09 — persistência OCI real isolada](docs/17_homologacao_h09_persistencia_oci_real.md)
 - [H10 — falhas parciais com FakeOCI](docs/18_homologacao_h10_falhas_parciais_i1.md)
 - [H11 — controles de processamento local](docs/19_h11_controles_processamento_local_i1.md)

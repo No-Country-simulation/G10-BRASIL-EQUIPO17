@@ -32,10 +32,10 @@ Status: APROVADO — execução real controlada.
 Resultado final: AUDITORIA_H16_DOC001: APROVADA
 
 ## Limitações
-- Evidência restrita ao documento sintético DOC-001.
+- Evidência restrita aos três documentos sintéticos oficiais (DOC-001, DOC-002 e DOC-005).
 - Não comprova desempenho, custo zero ou precisão clínica.
 - Não houve coleta de métricas de tokens ou duração total.
-- DOC-005 homologado no escopo tecnico da H16.
+- A gravação da revisão humana no bucket OCI não fez parte desta homologação.
 - Não publicar a API sem autenticação e controles adicionais.
 - Não repetir processamento automaticamente.
 
