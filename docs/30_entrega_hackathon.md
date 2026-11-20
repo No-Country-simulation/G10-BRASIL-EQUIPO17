@@ -56,11 +56,12 @@ flowchart LR
 | Ambiguidade | DOC-005, receita ilegível | R002 | `auditoria_humana` |
 
 - **3/3 cenários** aprovados em três níveis: simulação local (H14), Gemini real (H15) e **Gemini + Oracle Cloud reais juntos** (H16, com 12 objetos auditados).
-- **578 testes automatizados** offline aprovados, com CI em Python 3.12 e 3.13.
+- **581 testes offline aprovados** e 3 deselecionados na `develop` após o PR #65 (19/11/2026); **65 testes direcionados aprovados** na preparação da H17 (20/11/2026). A referência anterior de 578 testes permanece documentada no README.
+- **H17 — persistência OCI atualizada aprovada (20/11/2026):** dois cenários textuais sintéticos, três execuções, três índices de status, revisão humana gravada e recuperada e ausência de herança após reprocessamento. **14 novos objetos**; **43 objetos auditados**, dos quais **29 históricos preservados por SHA-256**. A H17 usou fixtures e não fez chamadas Gemini reais.
 
 ### Limitações e próximos passos
 
-Funciona somente em localhost, não tem autenticação e aceita apenas as amostras sintéticas oficiais. A revisão humana foi validada offline, mas ainda não gravando na OCI real. Os próximos passos são homologar essa gravação, medir custo e latência, calibrar o indicador de qualidade e implementar autenticação antes de qualquer publicação. A lista completa está no [README](../README.md#próximas-etapas).
+O protótipo funciona somente em localhost, não possui autenticação e aceita apenas amostras sintéticas oficiais. **A revisão humana e os índices de status foram homologados na OCI real na H17**, em cenário controlado com fixtures textuais; isso não autoriza uso clínico ou publicação pública. Permanecem como possíveis evoluções futuras medir custo e latência, calibrar o indicador de qualidade e implementar autenticação e controles operacionais. Para as atividades imediatas de entrega, ver [Próximas etapas](../README.md#próximas-etapas) e [relatório H17](31_h17_homologacao_persistencia_oci_real.md).
 
 ---
 
@@ -109,5 +110,6 @@ Roteiro sugerido (3–5 min):
 | Design / protótipo de interface | `<COLAR O LINK (Figma, Canva etc.), se houver>` |
 | Diagrama do grafo | [diagramas/grafo_mediflow_v0.1.png](../diagramas/grafo_mediflow_v0.1.png) |
 | Evidência H16 (Gemini + OCI reais) | [docs/29_h16_homologacao_http_gemini_oci_real.md](29_h16_homologacao_http_gemini_oci_real.md) |
+| Evidência H17 (índices e revisão humana na OCI real) | [docs/31_h17_homologacao_persistencia_oci_real.md](31_h17_homologacao_persistencia_oci_real.md) |
 | Critérios de homologação | [docs/16_criterios_homologacao_mvp.md](16_criterios_homologacao_mvp.md) |
 | Pull requests | https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pulls |
