@@ -11,7 +11,7 @@ O **MediFlow** é um protótipo educacional para receber documentos de saúde **
 > [!IMPORTANT]
 > **Não é um sistema clínico.** O MediFlow não diagnostica, prescreve, define condutas, autoriza procedimentos nem dispensa medicamentos. Os dados e documentos de demonstração são fictícios. **Não utilize dados reais de pacientes, não exponha os serviços à internet e não interprete alertas documentais como avaliação médica.**
 
-**Estado técnico verificado:** o MVP demonstrativo opera localmente com FakeOCI; a H15 homologou Gemini real com FakeOCI e a **H16 homologou Gemini + OCI reais juntos nos três cenários sintéticos**, com 12 objetos históricos auditados. As evoluções posteriores incluem indicador de qualidade, índices OCI por status, triagem textual controlada e interface Streamlit com isolamento por backend. A revisão humana da H16 está validada offline, mas sua gravação real na OCI permanece pendente. Consulte os relatórios [H16](docs/29_h16_homologacao_http_gemini_oci_real.md) e [preparação/limitações](docs/28_h16_preparacao_http_gemini_oci.md).
+**Estado técnico verificado (20/11/2026):** o MVP demonstrativo opera localmente com FakeOCI. A H15 homologou Gemini real com FakeOCI; a **H16 homologou Gemini + OCI reais nos três cenários sintéticos**, com 12 objetos auditados. Posteriormente, a **H17 homologou na OCI real** os índices segregados por status, a persistência e recuperação de revisão humana e a ausência de herança dessa revisão após reprocessamento. A H17 utilizou **fixtures textuais sintéticas**, sem Gemini real: 14 novos objetos íntegros, 43 objetos no bucket e 29 históricos preservados por SHA-256. Consulte [H16](docs/29_h16_homologacao_http_gemini_oci_real.md) e [H17](docs/31_h17_homologacao_persistencia_oci_real.md).
 
 ## Índice
 
@@ -40,10 +40,10 @@ O **MediFlow** é um protótipo educacional para receber documentos de saúde **
 | Confirmação de marcador de alerta no original | **Implementada** com leitura independente da resposta da IA |
 | Regras de encaminhamento R001–R006 e LangGraph | **Implementados e testados localmente** |
 | Resultado estruturado em `ResultadoTriagem v0.1` | **Implementado** com validação Pydantic |
-| Persistência de originais, manifestos, históricos e resultados | **H16 real homologada nos três cenários**; os novos índices segregados por status estão implementados e testados offline |
+| Persistência de originais, manifestos, históricos e resultados | **H16 homologada na OCI real nos três cenários**; **H17 homologou na OCI real** três novos índices segregados por status e suas referências, com 14 objetos novos íntegros |
 | Demonstração dos três cenários | **3/3 com fixtures + FakeOCI (H14)**, **3/3 com Gemini real + FakeOCI (H15)** e **3/3 com Gemini + OCI reais (H16)** |
 | Interface gráfica (Streamlit) | **Integrada às APIs locais** (visão geral, envio, resultado com regra principal e evidências, fila de auditoria) e **validada visualmente nos três cenários**, com aviso permanente de simulação; ver [`src/mediflow/ui/README.md`](src/mediflow/ui/README.md) |
-| Revisão humana operacional | APIs locais e composição H16 implementadas; consulta e revisão imutável testadas offline; **revisão na OCI real ainda não homologada**; sem autenticação do revisor |
+| Revisão humana operacional | **H17 homologou na OCI real** uma revisão imutável (HTTP 201 após releitura), sua recuperação e o isolamento entre execuções; **revisor ainda sem autenticação**; escopo sintético/local |
 | Deploy público, autenticação e uso clínico | **Não implementados ou autorizados** |
 
 **Interpretação:** código disponível, CI verde e testes com fakes **não** equivalem a homologação de serviços externos nem a um MVP clínico em produção. O status da branch `main` pode ser anterior ao da `develop`; consulte o [histórico de integração](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pulls) antes de promover uma versão.
@@ -64,7 +64,7 @@ flowchart TB
     RAG --> GRAPH["LangGraph + motor determinístico<br/>R001 a R006"]
     GRAPH --> PERSIST["Persistência de resultado e histórico<br/>FakeOCI na demonstração"]
     PERSIST --> JSON["ResultadoTriagem v0.1<br/>JSON validado por Pydantic"]
-    OCI[("OCI Object Storage real<br/>bucket dev, modo H16")] -.->|H16: original, histórico,<br/>resultado e revisões| PERSIST
+    OCI[("OCI Object Storage real<br/>bucket dev, H16/H17")] -.->|H16: original, histórico e resultado;<br/>H17: índices e revisão humana| PERSIST
 ```
 
 **O que é real em cada execução:**
@@ -72,7 +72,8 @@ flowchart TB
 - **Demonstração local:** FastAPI, integridade, orquestração, confirmador, RAG, motor e LangGraph são implementações reais locais; extração utiliza os JSONs de referência; persistência utiliza FakeOCI **volátil em memória**.
 - **Homologação Gemini local:** mesma orquestração, com extrator Gemini **injetável** e protegido por autorização explícita; os testes automatizados usam um extrator controlado e **não fazem chamadas externas**; persistência permanece FakeOCI.
 - **Homologação OCI H09:** o SDK e o Object Storage reais gravaram e leram **quatro objetos** de um cenário sintético, usando **resultado de fixture**. Essa evidência isolada não comprova o fluxo HTTP completo.
-- **H16 Gemini + OCI dev:** fluxo HTTP completo com Gemini real e o bucket OCI de desenvolvimento `mediflow-docs-dev`, protegido por consentimentos explícitos. Os três cenários foram homologados com **12 objetos auditados**; a gravação da revisão humana nesse bucket ainda não foi homologada.
+- **H16 Gemini + OCI dev:** fluxo HTTP completo com Gemini real e o bucket OCI de desenvolvimento `mediflow-docs-dev`, protegido por consentimentos explícitos; os três cenários foram homologados com **12 objetos auditados**. A H16 não testou a gravação da revisão humana.
+- **H17 — persistência OCI atualizada:** dois cenários sintéticos textuais, extração por fixture (sem Gemini real), três execuções, três índices de status, uma revisão humana imutável e reprocessamento sem herança da revisão. **14 novos objetos**, **43 objetos auditados** e **29 históricos preservados** ([relatório H17](docs/31_h17_homologacao_persistencia_oci_real.md)).
 
 O armazenamento confirmado no JSON da demonstração **não significa** que um objeto tenha sido enviado à Oracle Cloud.
 
@@ -439,7 +440,9 @@ git diff --check
 git diff --check
 ```
 
-**Referência de validação (18/11/2026, branch `docs/referencia-entrega-main` sobre `c5933c8`):** **578 testes offline aprovados e 3 deselecionados** com `pytest -q -k "not fluxo_api_com_gemini_real"`, e compilação sem erros.
+**Referência histórica de validação (18/11/2026, branch `docs/referencia-entrega-main` sobre `c5933c8`):** **578 testes offline aprovados e 3 deselecionados** com `pytest -q -k "not fluxo_api_com_gemini_real"`, e compilação sem erros.
+
+**Validações posteriores na `develop`:** em 19/11/2026, após o PR #65, **581 testes offline aprovados e 3 deselecionados**; na preparação H17 em 20/11/2026, **65 testes direcionados aprovados**. A H17-06 validou por leitura OCI **29 objetos históricos e 14 novos**, sem chamadas Gemini reais. Esses números correspondem a execuções distintas, não a uma nova suíte completa nesta revisão de documentação.
 
 **Documentos de evidência:**
 
@@ -451,6 +454,7 @@ git diff --check
 - [H14 — demonstração técnica dos três cenários](docs/26_h14_demonstracao_local.md)
 - [H15 — fluxo HTTP com Gemini real e FakeOCI](docs/27_h15_homologacao_http_gemini_real.md)
 - [H16 — HTTP com Gemini e OCI reais (3/3 cenários)](docs/29_h16_homologacao_http_gemini_oci_real.md)
+- [H17 — índices OCI, revisão humana e reprocessamento (2 cenários, 3 execuções)](docs/31_h17_homologacao_persistencia_oci_real.md)
 
 ## Segurança e limitações
 
@@ -465,15 +469,14 @@ git diff --check
 
 ## Próximas etapas
 
-O fluxo documental Gemini + OCI reais já foi homologado na H16. Permanecem pendentes, conforme o escopo futuro:
+A H16 homologou Gemini e OCI reais nos três cenários; a H17 homologou a persistência atualizada, com índices por status, revisão humana e isolamento entre execuções na OCI real. A H17 está encerrada e **não requer novas gravações**. Para a entrega do MVP:
 
-1. **Homologar a revisão humana na OCI real**, usando somente documentos sintéticos e autorização explícita.
-2. **Verificar os novos índices segregados por status na OCI real**, sem alterar a evidência histórica H16.
-3. **Coletar métricas de custo, latência e tokens**, ainda não registradas na H16.
-4. **Avaliar as falhas de provedores reais** de forma controlada, preservando as proteções já verificadas com FakeOCI.
-5. **Calibrar o indicador heurístico de qualidade** antes de interpretá-lo como métrica de precisão.
-6. **Implementar segurança de produção**, incluindo autenticação, autorização, retenção, idempotência e observabilidade, caso exista intenção futura de publicação.
-7. **Ampliar a triagem textual** além das três amostras sintéticas oficiais somente após definir controles apropriados.
+1. **Consolidar e integrar a documentação H17**, preservando as evidências JSON originais sob acesso apropriado.
+2. **Verificar as últimas alterações da interface Streamlit** e os três cenários de demonstração com a responsável.
+3. **Confirmar o vídeo demonstrativo**, os links e a documentação de submissão.
+4. **Executar a regressão offline final** e conferir o CI nas versões Python 3.12 e 3.13 antes da sincronização da `main`.
+
+Em uma possível evolução futura, ainda serão necessários autenticação/autorização, tratamento de concorrência e idempotência, políticas de retenção, observabilidade, avaliação de custo/latência, calibração do indicador heurístico e validação de segurança. Essas atividades **não são requisitos para declarar H17 aprovada** e não devem expandir o MVP antes da entrega.
 
 ## Documentação e colaboração
 
