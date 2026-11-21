@@ -1,4 +1,4 @@
-# MediFlow — H17: Homologação da persistência OCI atualizada
+# MediFlow — Validação de persistência e revisão humana na OCI (H17)
 
 **Data:** 20/11/2026
 **Situação:** HOMOLOGAÇÃO TÉCNICA APROVADA — dentro do escopo sintético e controlado
@@ -21,7 +21,7 @@ Foi concedida autorização explícita para até **14 novos objetos sintéticos*
 
 Antes da primeira gravação real, foram confirmados:
 
-- Commit local `6a1f74f8ad000fcd01b6640f67c9d8019e34134a`, na branch `develop`, sem alterações rastreadas; os dois arquivos históricos não rastreados foram preservados.
+- Commit local `6a1f74f8ad000fcd01b6640f67c9d8019e34134a`, na branch `develop`, sem alterações rastreadas.
 - **65 testes direcionados aprovados**, em 21,80 s, abrangendo persistência, revisão, triagem textual e HTTP de demonstração.
 - Ensaio com FakeOCI aprovado, com **14 objetos simulados** e confirmação da não herança de revisão após reprocessamento.
 - Inventário inicial OCI com **29 objetos**, total de **571.072 bytes** e nenhuma chave H17 preexistente.
@@ -186,18 +186,14 @@ Esses arquivos permaneceram na máquina do executor; o presente relatório foi c
 5. Em caso de HTTP 502 após tentativa de upload, a existência física do objeto pode ser incerta. A recuperação exige reconciliação por leitura; **não se devem executar retries cegos**.
 6. A auditoria confirmou o estado do bucket **no momento da execução**. Alterações futuras exigem novo inventário, sem extrapolar a conclusão no tempo.
 
-## 8. Conclusão e próximos passos
+## 8. Conclusão
 
 **H17 — HOMOLOGAÇÃO TÉCNICA APROVADA NO ESCOPO DEFINIDO.** Foram criados exatamente **14 novos objetos sintéticos** na OCI real, totalizando **43 objetos**. Os **29 objetos históricos foram preservados** por comparação de SHA-256, os três resultados e três índices novos foram validados, e a revisão humana foi persistida e recuperada sem herança indevida após reprocessamento.
 
-A H17 está **encerrada quanto à execução e à auditoria técnica**, pendente apenas de incorporar este relatório ao versionamento do projeto e revisar a documentação de entrega. **Não executar novas gravações H17**; a autorização de 14 novos objetos foi integralmente consumida.
+A validação de persistência, revisão humana e reprocessamento na OCI está concluída. Este relatório foi integrado ao repositório pelo [PR #66](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/66).
 
-Próximos passos de entrega:
+As alterações posteriores da interface e do fluxo de revisão humana foram validadas com testes offline e FakeOCI, conforme o [PR #67](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/67). Essas evidências complementam, mas não ampliam retroativamente, o escopo da homologação real de 20/11/2026, que registrou uma revisão com ação `aprovar`.
 
-1. Revisar e incluir este relatório em `docs/31_h17_homologacao_persistencia_oci_real.md` por branch e PR, conforme fluxo habitual, após autorização para alterar o Git.
-2. Atualizar os trechos de `docs/30_entrega_hackathon.md` e do README que ainda indicam revisão humana não homologada na OCI ou contagem antiga de testes, após conferir seu conteúdo atual.
-3. Confirmar o estado mais recente da interface Streamlit e do vídeo demonstrativo com a responsável.
-4. Executar a regressão final na `develop`, conferir CI Python 3.12/3.13 e comparar a entrega aos requisitos do edital.
-5. Sincronizar a `main` somente após revisão e aprovação do conjunto final de alterações.
+A autorização para as 14 gravações sintéticas foi integralmente utilizada. Esta atualização documental não realizou novas gravações nem novas consultas OCI e não altera as evidências registradas.
 
 **Status final:** `AUDITORIA_FINAL_H17: APROVADA` — `CODIGO_SAIDA: 0`.
