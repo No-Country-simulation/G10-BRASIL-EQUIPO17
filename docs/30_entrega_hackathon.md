@@ -58,6 +58,7 @@ flowchart LR
 - **3/3 cenários** aprovados em três níveis: simulação local (H14), Gemini real (H15) e **Gemini + Oracle Cloud reais juntos** (H16, com 12 objetos auditados).
 - **581 testes offline aprovados** e 3 deselecionados na `develop` após o PR #65 (19/11/2026); **65 testes direcionados aprovados** na preparação da H17 (20/11/2026). A referência anterior de 578 testes permanece documentada no README.
 - **H17 — persistência OCI atualizada aprovada (20/11/2026):** dois cenários textuais sintéticos, três execuções, três índices de status, revisão humana gravada e recuperada e ausência de herança após reprocessamento. **14 novos objetos**; **43 objetos auditados**, dos quais **29 históricos preservados por SHA-256**. A H17 usou fixtures e não fez chamadas Gemini reais.
+- **PR #67 — interface e auditoria (20/11/2026):** **601 testes offline aprovados, 3 deselecionados**, compilação aprovada e CI verde em Python 3.12/3.13. Os ajustes incluem upload demonstrativo, visualização dos resultados e revisão humana.
 
 ### Limitações e próximos passos
 

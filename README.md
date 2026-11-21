@@ -442,7 +442,9 @@ git diff --check
 
 **Referência histórica de validação (18/11/2026, branch `docs/referencia-entrega-main` sobre `c5933c8`):** **578 testes offline aprovados e 3 deselecionados** com `pytest -q -k "not fluxo_api_com_gemini_real"`, e compilação sem erros.
 
-**Validações posteriores na `develop`:** em 19/11/2026, após o PR #65, **581 testes offline aprovados e 3 deselecionados**; na preparação H17 em 20/11/2026, **65 testes direcionados aprovados**. A H17-06 validou por leitura OCI **29 objetos históricos e 14 novos**, sem chamadas Gemini reais. Esses números correspondem a execuções distintas, não a uma nova suíte completa nesta revisão de documentação.
+**Validações posteriores na `develop`:** em 19/11/2026, após o PR #65, **581 testes offline aprovados e 3 deselecionados**; na preparação H17 em 20/11/2026, **65 testes direcionados aprovados**. A H17-06 validou por leitura OCI **29 objetos históricos e 14 novos**, sem chamadas Gemini reais. Esses números correspondem a execuções distintas.
+
+**Validação consolidada da interface (PR #67, 20/11/2026):** **601 testes offline aprovados e 3 deselecionados**, compilação sem erros e CI aprovado em Python 3.12 e 3.13. Foram integradas as correções do fluxo documental e da revisão humana.
 
 **Documentos de evidência:**
 
@@ -471,8 +473,8 @@ git diff --check
 
 A H16 homologou Gemini e OCI reais nos três cenários; a H17 homologou a persistência atualizada, com índices por status, revisão humana e isolamento entre execuções na OCI real. A H17 está encerrada e **não requer novas gravações**. Para a entrega do MVP:
 
-1. **Consolidar e integrar a documentação H17**, preservando as evidências JSON originais sob acesso apropriado.
-2. **Verificar as últimas alterações da interface Streamlit** e os três cenários de demonstração com a responsável.
+1. **Conferir as evidências H16/H17 já integradas**, preservando os arquivos JSON originais sob acesso apropriado.
+2. **Conferir a demonstração final da interface Streamlit** com a responsável, incluindo os três cenários sintéticos e a revisão humana.
 3. **Confirmar o vídeo demonstrativo**, os links e a documentação de submissão.
 4. **Executar a regressão offline final** e conferir o CI nas versões Python 3.12 e 3.13 antes da sincronização da `main`.
 

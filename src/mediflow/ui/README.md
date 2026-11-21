@@ -87,7 +87,9 @@ campos aditivos: `recebido_em` e `revisao_humana` (null até a primeira decisão
 gravada como objeto imutável em `revisoes/{documento_id}/…json`; o resultado original nunca é
 alterado e as correções do auditor ficam só no registro da revisão. Na demonstração e no Gemini
 local, o armazenamento é a FakeOCI em memória e tudo some quando a API é reiniciada. Na H16, a
-revisão é gravada no bucket OCI de desenvolvimento, mas essa gravação ainda não foi homologada.
+revisão pode ser gravada no bucket OCI de desenvolvimento. A H17 homologou a
+persistência e a recuperação da revisão humana na OCI real com fixtures sintéticas,
+sem chamadas Gemini reais.
 
 Contra uma API sem essas rotas (a principal), a UI volta a usar os `ResultadoTriagem` que
 **a própria API devolveu nesta sessão** do navegador, e deixa isso explícito:
