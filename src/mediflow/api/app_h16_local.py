@@ -102,6 +102,30 @@ def somente_amostra_oficial(
         })
 
 
+def validar_arquivo_h16_pos_leitura(documento_id: str, nome: str, dados: bytes, mime: str) -> None:
+    """Revalida a amostra H16 apos a leitura, antes de gravar no armazenamento.
+
+    A dependencia somente_amostra_oficial ja verifica nome, MIME e bytes antes
+    de acessar o storage. Esta etapa preserva a verificacao na chamada direta.
+    """
+    relativo = _AMOSTRAS.get(documento_id)
+    if relativo is None:
+        raise HTTPException(422, detail={
+            "codigo": "H16_AMOSTRA_NAO_AUTORIZADA",
+            "mensagem": "Somente DOC-001, DOC-002 e DOC-005 sinteticos oficiais.",
+        })
+    caminho = _RAIZ / relativo
+    if (
+        nome != caminho.name
+        or mime != TIPOS_MIME.get(caminho.suffix.lower())
+        or not hmac.compare_digest(dados, caminho.read_bytes())
+    ):
+        raise HTTPException(422, detail={
+            "codigo": "H16_AMOSTRA_NAO_AUTORIZADA",
+            "mensagem": "Arquivo nao corresponde a amostra sintetica oficial.",
+        })
+
+
 def fornecer_servico_h16(
     documento_id: str,
     arquivo_id: str,
@@ -166,6 +190,7 @@ def receber_amostra_h16(
         arquivo=arquivo,
         _=None,
         storage=storage,
+        validar_upload=validar_arquivo_h16_pos_leitura,
     )
 
 

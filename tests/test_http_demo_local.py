@@ -121,12 +121,30 @@ def test_original_corrompido_bloqueia_processamento(cliente):
 
 
 def test_amostra_diferente_da_oficial_rejeitada(cliente):
+    # Nome DOC-001 com bytes validos do DOC-002: rejeitar antes da FakeOCI.
     doc_2 = (RAIZ / ARQUIVOS["DOC-002"][0]).read_bytes()
-    recibo = enviar(cliente, "DOC-001", arquivo_override=doc_2)
-    r = processar(cliente, recibo)
-    assert r.status_code == 502
-    assert r.json()["detail"]["codigo"] == "EXTRACAO_INDISPONIVEL"
-    assert not any(k.startswith("resultados/") for k in cliente_fakeoci.objetos)
+    arquivo = RAIZ / ARQUIVOS["DOC-001"][0]
+    r = cliente.post(
+        "/v1/triagens/arquivos",
+        data={"documento_id": "DOC-001", "canal_origem": "demo_local"},
+        files={"arquivo": (arquivo.name, doc_2, "application/pdf")},
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"]["codigo"] == "AMOSTRA_NAO_AUTORIZADA"
+    assert cliente_fakeoci.objetos == {}
+
+
+def test_pdf_externo_valido_rejeitado_antes_da_gravacao(cliente):
+    # PDF estruturalmente valido, com nome e ID fora do catalogo de fixtures.
+    doc_1 = (RAIZ / ARQUIVOS["DOC-001"][0]).read_bytes()
+    r = cliente.post(
+        "/v1/triagens/arquivos",
+        data={"documento_id": "UI-EXTERNO-01", "canal_origem": "demo_local"},
+        files={"arquivo": ("arquivo_externo.pdf", doc_1, "application/pdf")},
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"]["codigo"] == "AMOSTRA_NAO_AUTORIZADA"
+    assert cliente_fakeoci.objetos == {}
 
 
 def test_falha_na_persistencia_nao_declara_sucesso(cliente):
