@@ -62,8 +62,11 @@ class Revisao(BaseModel):
             raise ValueError("rejeitar exige comentario com o motivo")
         if self.acao == "corrigir" and not self.correcoes:
             raise ValueError("corrigir exige ao menos uma correcao")
-        if self.acao != "corrigir" and self.correcoes:
-            raise ValueError("correcoes so sao aceitas com acao corrigir")
+        # A rejeicao pode incluir valores declarados pelo revisor, sem aprovar
+        # o documento ou substituir a extracao original. Uma aprovacao simples
+        # continua sem edicoes; para aprovar com alteracoes, usar "corrigir".
+        if self.acao == "aprovar" and self.correcoes:
+            raise ValueError("aprovacao sem alteracoes nao aceita correcoes; use corrigir")
         return self
 
 

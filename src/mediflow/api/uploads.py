@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import PurePath
-from typing import Annotated, Literal
+from typing import Annotated, Callable, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, Path, Query
 from pydantic import Field, ValidationError
@@ -88,6 +88,14 @@ def armazenamento() -> OCIStorage:
         ) from exc
 
 
+def fornecer_validador_upload() -> Callable[[str, str, bytes, str], None]:
+    """Ponto de extensao antes de gravar originais: default sem restricao adicional.
+
+    O app demo injeta um validador exclusivo das tres amostras oficiais.
+    """
+    return lambda documento_id, nome, dados, mime: None
+
+
 def somente_desenvolvimento_local(request: Request) -> None:
     """Portão temporário: endpoint sem autenticação proibido por padrão."""
     habilitado = os.getenv("MEDIFLOW_ENABLE_LOCAL_UPLOADS", "false").lower() == "true"
@@ -154,6 +162,7 @@ def receber_documento(
     arquivo: Annotated[UploadFile, File(description="PDF, PNG ou JPEG sintético; máximo de 10 MiB")],
     _: Annotated[None, Depends(somente_desenvolvimento_local)],
     storage: Annotated[OCIStorage, Depends(armazenamento)],
+    validar_upload: Annotated[Callable[[str, str, bytes, str], None], Depends(fornecer_validador_upload)],
 ) -> ReciboArquivo:
     if not canal_origem.strip():
         raise HTTPException(422, detail={"codigo": "CANAL_INVALIDO", "mensagem": "Canal de origem não pode ser vazio."})
@@ -167,6 +176,8 @@ def receber_documento(
         raise HTTPException(400, detail={"codigo": "ARQUIVO_VAZIO", "mensagem": "Arquivo vazio."})
 
     tipo_entrada, mime, nome_seguro = verificar_documento(arquivo.filename, arquivo.content_type, bytes(dados))
+    # Validar restricoes da composicao antes de registrar original e manifesto.
+    validar_upload(documento_id, nome_seguro, bytes(dados), mime)
     extensao = ".jpeg" if nome_seguro.lower().endswith(".jpeg") else os.path.splitext(nome_seguro)[1].lower()
     return registrar_original(
         storage,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
 
@@ -420,25 +421,33 @@ def _file_mode(backend) -> None:
         return
     source = _file_source(uploaded)
     _upload_success(uploaded, processed=st.session_state.get(_JUST_PROCESSED) == source)
-    # O resumo fica logo abaixo do arquivo, acima da pré-visualização, para não sair da tela.
-    _show_last_result(source)
     left, right = st.columns([2, 3], gap="large")
     with left:
         if st.button("Processar documento", type="primary",
                      key="process_file", width="stretch"):
             if _process(source, backend.upload_document, uploaded.name, uploaded.getvalue(),
                         uploaded.type or "application/octet-stream"):
-                st.rerun()  # redesenha com o resumo no topo
+                st.rerun()  # atualiza a exibicao apos processar
     with right:
         _preview(uploaded)
+    _show_last_result(source)
 
 
 def _clear_text() -> None:
+    """Limpa a entrada e oculta o resumo, sem excluir o historico."""
     st.session_state[_TEXT_KEY] = ""
+    st.session_state.pop(_TEXT_READ, None)
+    st.session_state[_JUST_PROCESSED] = None
+
+
+def _text_source(text: str) -> str:
+    """Identifica o conteudo que originou o resumo exibido."""
+    return "text:" + sha256(text.strip().encode("utf-8")).hexdigest()
 
 
 def _load_sample(filename: str) -> None:
     """Coloca no campo o texto de uma amostra sintética oficial (callback: corre antes do widget)."""
+    _clear_text()
     st.session_state[_TEXT_KEY] = (SAMPLE_TEXTS_DIR / filename).read_text(encoding="utf-8").strip()
 
 
@@ -509,8 +518,8 @@ def _text_mode(backend) -> None:
         clicked = st.button("Processar documento", type="primary",
                             disabled=not valid, key="process_text")
     if clicked:
-        _process("text", backend.submit_text, text.strip())
-    _show_last_result("text")
+        _process(_text_source(text), backend.submit_text, text.strip())
+    _show_last_result(_text_source(text))
 
 
 def render() -> None:

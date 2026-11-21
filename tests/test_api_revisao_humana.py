@@ -492,3 +492,33 @@ def test_revisao_exige_confirmacao_apos_upload(
         consulta = cliente.get("/v1/triagens/DOC-005")
         assert consulta.status_code == 200
         assert consulta.json()["revisao_humana"]["acao"] == "aprovar"
+
+
+
+def test_ajuste8b_rejeicao_com_alteracoes_persistidas(cliente):
+    resultado = processar(cliente, "DOC-005")
+    chave_resultado = resultado["armazenamento_oci"]["chave_resultado"]
+    original = cliente_fakeoci.objetos[chave_resultado]
+    correcoes = {
+        "classificacao": {"tipo_documento": "solicitacao_exame"},
+        "dados_extraidos": {"paciente": {"nome": "Paciente Sintetico Rejeitado"}},
+    }
+
+    r = revisar(
+        cliente, "DOC-005", acao="rejeitar",
+        comentario="Exame descartado no caso sintetico",
+        correcoes=correcoes,
+    )
+    assert r.status_code == 201, r.text
+    registro = r.json()["revisao_humana"]
+    assert registro["acao"] == "rejeitar"
+    assert registro["correcoes"] == correcoes
+    assert cliente_fakeoci.objetos[chave_resultado] == original
+
+    consulta = cliente.get("/v1/triagens/DOC-005")
+    assert consulta.status_code == 200
+    assert consulta.json()["revisao_humana"]["correcoes"] == correcoes
+    assert consulta.json()["dados_extraidos"] == resultado["dados_extraidos"]
+    pendentes = cliente.get("/v1/triagens", params={"status": "aguardando_auditoria"}).json()
+    assert not any(d["documento_id"] == "DOC-005" and
+                   d["revisao_humana"] is None for d in pendentes)

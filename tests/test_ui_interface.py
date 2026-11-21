@@ -374,3 +374,377 @@ def test_ultimo_resultado_respeita_origem_da_api():
 
     st.session_state["api_url"] = BASE
     assert api_client.get_last_result() is None
+
+def test_lixeira_texto_oculta_resumo_sem_apagar_resultado():
+    from mediflow.ui.views import upload as upload_view
+
+    conteudo = "Documento sintetico DOC-002"
+    st.session_state["doc_text"] = conteudo
+    st.session_state["_doc_text_read"] = (conteudo, {"words": 3})
+    st.session_state["just_processed"] = upload_view._text_source(conteudo)
+
+    api_client.set_last_result(exemplo("DOC-002"))
+
+    upload_view._clear_text()
+
+    assert st.session_state["doc_text"] == ""
+    assert st.session_state["just_processed"] is None
+    assert "_doc_text_read" not in st.session_state
+    assert api_client.get_last_result()["documento_id"] == "DOC-002"
+
+
+def test_resumo_textual_depende_do_conteudo():
+    from mediflow.ui.views import upload as upload_view
+
+    origem_a = upload_view._text_source("Documento sintetico A")
+    origem_b = upload_view._text_source("Documento sintetico B")
+
+    assert origem_a != origem_b
+    assert origem_a == upload_view._text_source("Documento sintetico A  ")
+
+
+def test_trocar_amostra_oculta_resumo_anterior():
+    from mediflow.ui.views import upload as upload_view
+
+    st.session_state["doc_text"] = "Documento anterior"
+    st.session_state["_doc_text_read"] = ("Documento anterior", {})
+    st.session_state["just_processed"] = upload_view._text_source(
+        "Documento anterior"
+    )
+
+    arquivo = upload_view.SAMPLE_TEXTS["Ambiguidade (DOC-005)"]
+    upload_view._load_sample(arquivo)
+
+    assert st.session_state["doc_text"] == (
+        upload_view.SAMPLE_TEXTS_DIR / arquivo
+    ).read_text(encoding="utf-8").strip()
+    assert st.session_state["just_processed"] is None
+    assert "_doc_text_read" not in st.session_state
+
+def test_resumo_arquivo_aparece_depois_do_preview(monkeypatch):
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+    from mediflow.ui.views import upload as tela
+
+    eventos = []
+    arquivo = SimpleNamespace(
+        name="DOC-002_laudo_imagem_alerta.pdf",
+        size=100,
+        type="application/pdf",
+    )
+
+    monkeypatch.setattr(st, "subheader", lambda *a, **k: None)
+    monkeypatch.setattr(st, "file_uploader", lambda *a, **k: arquivo)
+    monkeypatch.setattr(st, "html", lambda *a, **k: None)
+    monkeypatch.setattr(
+        st, "columns",
+        lambda *a, **k: (nullcontext(), nullcontext()),
+    )
+    monkeypatch.setattr(st, "button", lambda *a, **k: False)
+
+    monkeypatch.setattr(tela, "_validate", lambda uploaded: None)
+    monkeypatch.setattr(
+        tela, "_upload_success",
+        lambda *a, **k: eventos.append("arquivo"),
+    )
+    monkeypatch.setattr(
+        tela, "_preview",
+        lambda uploaded: eventos.append("preview"),
+    )
+    monkeypatch.setattr(
+        tela, "_show_last_result",
+        lambda source: eventos.append("resumo"),
+    )
+
+    tela._file_mode(None)
+
+    assert eventos == ["arquivo", "preview", "resumo"]
+
+# Regressao da Visao geral: rejeitar encerra fluxo, mas nao aprova o documento.
+def test_finalizados_incluem_rejeitados_e_filtro_seleciona_todos(monkeypatch):
+    from contextlib import nullcontext
+
+    from mediflow.ui.components import status_label
+    from mediflow.ui.config import DONE_STATUSES
+    from mediflow.ui.models import compute_stats
+    from mediflow.ui.views import dashboard
+
+    originais = [exemplo("DOC-001"), exemplo("DOC-002"), exemplo("DOC-005")]
+    originais[1]["revisao_humana"] = {"acao": "rejeitar", "revisor": "Auditor Sintetico"}
+    originais[2]["revisao_humana"] = {"acao": "aprovar", "revisor": "Auditor Sintetico"}
+    docs = [normalize_document(d) for d in originais]
+
+    assert [d["status"] for d in docs] == ["processed", "rejected", "approved"]
+    assert set(DONE_STATUSES) == {"processed", "approved", "corrected", "rejected"}
+    assert compute_stats(originais)["processed"] == 3
+
+    cards = {}
+
+    def registrar_card(chave, rotulo, icone, valor, **kwargs):
+        cards[chave] = {"rotulo": rotulo, "valor": valor, "on_click": kwargs.get("on_click")}
+
+    monkeypatch.setattr(dashboard, "_kpi_card", registrar_card)
+    monkeypatch.setattr(dashboard.st, "container", lambda *a, **k: nullcontext())
+    dashboard._kpis(docs, docs, None, "24 h")
+
+    card = cards["card_kpi_done"]
+    assert card["rotulo"] == "Finalizados"
+    assert card["valor"] == 3
+    card["on_click"]()
+    assert set(st.session_state[dashboard.K_STATUS]) == {status_label(s) for s in DONE_STATUSES}
+    assert "Rejeitado" in st.session_state[dashboard.K_STATUS]
+
+
+def test_linha_do_tempo_nao_conta_rejeitado_duas_vezes():
+    from mediflow.ui.views import dashboard
+
+    agora = pd.Timestamp("2026-11-20 15:30:00")
+    docs = [
+        {"ts": agora - timedelta(hours=1), "status": "processed"},
+        {"ts": agora - timedelta(hours=2), "status": "approved"},
+        {"ts": agora - timedelta(hours=3), "status": "rejected"},
+    ]
+    frame = dashboard._timeline_frame(docs, agora - timedelta(hours=24), agora, "24 h")
+    assert frame is not None
+    totais = frame.groupby("grupo")["total"].sum().to_dict()
+    assert totais["Concluídos"] == 2
+    assert totais["Rejeitados"] == 1
+    assert sum(totais.values()) == 3
+
+
+def test_upload_amostra_nao_autorizada_mensagem_clara(monkeypatch):
+    chamadas = api_falsa(monkeypatch, {
+        ("POST", "/v1/triagens/arquivos"): Resposta(422, {
+            "detail": {
+                "codigo": "AMOSTRA_NAO_AUTORIZADA",
+                "mensagem": "Amostra fora do catalogo da demonstracao.",
+            }
+        }),
+    })
+
+    with pytest.raises(APIError, match="Arquivo fora das amostras autorizadas"):
+        MediFlowClient(BASE).upload_document(
+            "arquivo_externo.pdf", b"%PDF-1.4", "application/pdf"
+        )
+    assert len(chamadas) == 1
+    assert chamadas[0][0] == "POST"
+    assert chamadas[0][1].endswith("/v1/triagens/arquivos")
+
+
+# --------------------------------------------------------------------------- #
+# Ajuste 6 - revisao humana: comparativo sem sobrescrever extracao original
+# --------------------------------------------------------------------------- #
+def test_revisao_corrigida_mostra_original_e_correcao():
+    import copy
+
+    raw = exemplo("DOC-005")
+    antes = copy.deepcopy(raw)
+    raw["revisao_humana"] = {
+        "acao": "corrigir", "revisor": "Auditor Sintetico",
+        "revisado_em": "2026-11-20T20:00:00Z",
+        "comentario": "Conferencia com fonte sintetica complementar",
+        "chave_resultado": "resultados/DOC-005/sintetico",
+        "correcoes": {
+            "classificacao": {"nivel_prioridade_documental": "rotina"},
+            "decisao_roteamento": {"destino_principal": "prontuario_documental"},
+            "dados_extraidos": {
+                "paciente": {"nome": "Paciente Sintetico Revisado", "nome_status": "legivel"},
+                "medicamentos": [{"nome": "Medicamento Alfa (ficticio)",
+                                  "dosagem_texto": "DOSE_SINTETICA_CONFIRMADA", "dosagem_status": "legivel"}],
+            },
+        },
+    }
+    doc = normalize_document(raw)
+    assert doc["status"] == "corrected"
+    assert doc["review"]["reviewer"] == "Auditor Sintetico"
+    assert doc["review"]["comment"] == "Conferencia com fonte sintetica complementar"
+    assert doc["review"]["result_key"] == "resultados/DOC-005/sintetico"
+    changes = {c["path"]: c for c in doc["review"]["changes"]}
+    assert changes["classificacao.nivel_prioridade_documental"]["corrected"] == "Rotina"
+    assert changes["decisao_roteamento.destino_principal"]["corrected"] == "Prontuário"
+    assert changes["dados_extraidos.paciente.nome"]["corrected"] == "Paciente Sintetico Revisado"
+    assert "ileg" in changes["dados_extraidos.medicamentos"]["original"].lower()
+    assert "DOSE_SINTETICA_CONFIRMADA" in changes["dados_extraidos.medicamentos"]["corrected"]
+    assert doc["extracted"]["medications"][0]["dosage"].lower().startswith("(ileg")
+    assert {k: v for k, v in raw.items() if k != "revisao_humana"} == antes
+
+
+def test_aprovacao_sem_correcao_nao_cria_comparativo():
+    raw = exemplo("DOC-001")
+    raw["revisao_humana"] = {"acao": "aprovar", "revisor": "Auditor Sintetico",
+                             "revisado_em": "2026-11-20T20:00:00Z", "correcoes": {}}
+    doc = normalize_document(raw)
+    assert doc["review"]["changes"] == []
+    assert doc["status"] == "approved"
+
+
+def test_correcao_desconhecida_tambem_aparece_no_comparativo():
+    raw = exemplo("DOC-002")
+    raw["revisao_humana"] = {
+        "acao": "corrigir", "revisor": "Auditor Sintetico",
+        "correcoes": {"dados_extraidos": {"campo_futuro": "valor sintetico"}},
+    }
+    row = normalize_document(raw)["review"]["changes"]
+    assert len(row) == 1
+    assert row[0]["path"] == "dados_extraidos.campo_futuro"
+    assert row[0]["original"] == "—"
+    assert row[0]["corrected"] == "valor sintetico"
+
+
+def test_resultado_renderiza_comparativo_de_revisao(monkeypatch):
+    from contextlib import nullcontext
+    from mediflow.ui.views import result as tela
+
+    raw = exemplo("DOC-005")
+    raw["revisao_humana"] = {
+        "acao": "corrigir", "revisor": "Auditor Sintetico",
+        "correcoes": {"dados_extraidos": {"paciente": {"nome": "Nome Sintetico Corrigido"}}},
+    }
+    exibidos = []
+    monkeypatch.setattr(st, "container", lambda *args, **kwargs: nullcontext())
+    monkeypatch.setattr(st, "markdown", lambda *args, **kwargs: None)
+    monkeypatch.setattr(st, "caption", lambda *args, **kwargs: None)
+    monkeypatch.setattr(st, "dataframe", lambda frame, **kwargs: exibidos.append(frame))
+
+    tela._review(normalize_document(raw))
+
+    assert len(exibidos) == 1
+    assert list(exibidos[0].columns) == ["Campo", "Extração original", "Correção humana"]
+    assert exibidos[0].iloc[0]["Correção humana"] == "Nome Sintetico Corrigido"
+
+
+# --------------------------------------------------------------------------- #
+# Ajuste 8 - apresentação separada da triagem original e da decisão humana
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize(
+    "acao,estado,cartao,rotulo",
+    [
+        ("aprovar", "approved", "card_ok_review", "Aprovado sem alterações"),
+        ("corrigir", "corrected", "card_warn_review", "Aprovado com correções"),
+        ("rejeitar", "rejected", "card_alert_review", "Rejeitado"),
+    ],
+)
+def test_ajuste8_revisao_humana_com_identidade_visual(
+    monkeypatch, acao, estado, cartao, rotulo
+):
+    from contextlib import nullcontext
+    from mediflow.ui.views import result as tela
+
+    raw = exemplo("DOC-005")
+    raw["revisao_humana"] = {
+        "acao": acao,
+        "revisor": "Revisor Sintetico",
+        "revisado_em": "2026-11-20T20:00:00Z",
+        "comentario": "Verificacao educativa",
+        "correcoes": (
+            {"dados_extraidos": {"paciente": {"nome": "Nome Sintetico Corrigido"}}}
+            if acao == "corrigir" else {}
+        ),
+    }
+    doc = normalize_document(raw)
+    cartoes = []
+    mensagens = []
+
+    def container(*args, **kwargs):
+        cartoes.append(kwargs.get("key"))
+        return nullcontext()
+
+    monkeypatch.setattr(st, "container", container)
+    monkeypatch.setattr(st, "markdown", lambda value, **kwargs: mensagens.append(str(value)))
+    monkeypatch.setattr(st, "caption", lambda value, **kwargs: mensagens.append(str(value)))
+    monkeypatch.setattr(st, "dataframe", lambda *args, **kwargs: None)
+
+    tela._review(doc)
+
+    assert doc["status"] == estado
+    assert cartao in cartoes
+    assert any("Decisão humana: " + rotulo in msg for msg in mensagens)
+    assert any("Revisor informado: Revisor Sintetico" in msg for msg in mensagens)
+    assert any("não altera a triagem automatizada original" in msg for msg in mensagens)
+    assert doc["priority"] == "ambiguidade"
+    assert doc["destination_id"] == "auditoria_humana"
+
+
+def test_ajuste8_kpis_sao_identificados_como_originais(monkeypatch):
+    from contextlib import nullcontext
+    from mediflow.ui.views import result as tela
+
+    raw = exemplo("DOC-005")
+    raw["revisao_humana"] = {
+        "acao": "corrigir", "revisor": "Revisor Sintetico",
+        "correcoes": {"classificacao": {"nivel_prioridade_documental": "rotina"}},
+    }
+    doc = normalize_document(raw)
+    textos = []
+    metricas = []
+    monkeypatch.setattr(st, "container", lambda *args, **kwargs: nullcontext())
+    monkeypatch.setattr(st, "markdown", lambda value, **kwargs: textos.append(str(value)))
+    monkeypatch.setattr(st, "caption", lambda value, **kwargs: textos.append(str(value)))
+    monkeypatch.setattr(st, "metric", lambda label, value, **kwargs: metricas.append((label, value)))
+
+    tela._kpis(doc)
+
+    assert any("Triagem automatizada — resultado original" in text for text in textos)
+    assert any("decisão humana posterior" in text for text in textos)
+    assert ("Prioridade documental", "Indeterminada") in metricas
+    assert ("Destino", "Auditoria humana") in metricas
+    assert doc["review"]["changes"][0]["corrected"] == "Rotina"
+
+
+
+# Ajuste 8B - edicoes declaradas ao rejeitar, sem aprovar nem substituir a IA.
+def test_ajuste8b_seletor_de_correcoes_preserva_rejeicao():
+    from mediflow.ui.views.audit import _corrections_for_review
+
+    alteracoes = {"dados_extraidos": {"paciente": {"nome": "Nome Ficticio"}}}
+    assert _corrections_for_review("rejeitar", alteracoes) == alteracoes
+    assert _corrections_for_review("corrigir", alteracoes) == alteracoes
+    assert _corrections_for_review("aprovar", alteracoes) is None
+    assert _corrections_for_review("rejeitar", {}) is None
+
+
+def test_ajuste8b_rejeicao_com_edicoes_exibe_comparativo(monkeypatch):
+    from contextlib import nullcontext
+    from mediflow.ui.views import result as tela
+
+    raw = exemplo("DOC-005")
+    nome_original = raw["dados_extraidos"]["paciente"].get("nome")
+    raw["revisao_humana"] = {
+        "acao": "rejeitar", "revisor": "Revisor Sintetico",
+        "comentario": "Rejeicao com registros de alteracao",
+        "correcoes": {"dados_extraidos": {"paciente": {"nome": "Outro Nome Ficticio"}}},
+    }
+    doc = normalize_document(raw)
+    titulos = []
+    tabelas = []
+    monkeypatch.setattr(st, "container", lambda *args, **kwargs: nullcontext())
+    monkeypatch.setattr(st, "markdown", lambda txt, **kwargs: titulos.append(str(txt)))
+    monkeypatch.setattr(st, "caption", lambda *args, **kwargs: None)
+    monkeypatch.setattr(st, "dataframe", lambda frame, **kwargs: tabelas.append(frame))
+
+    tela._review(doc)
+    assert doc["status"] == "rejected"
+    assert doc["extracted"]["patient_name"] == nome_original
+    assert any("Alterações informadas durante a rejeição" in t for t in titulos)
+    assert len(tabelas) == 1
+    assert tabelas[0].iloc[0]["Extração original"] == nome_original
+    assert tabelas[0].iloc[0]["Correção humana"] == "Outro Nome Ficticio"
+
+
+def test_ajuste8b_rejeicao_sem_edicoes_nao_exibe_comparativo(monkeypatch):
+    from contextlib import nullcontext
+    from mediflow.ui.views import result as tela
+
+    raw = exemplo("DOC-005")
+    raw["revisao_humana"] = {
+        "acao": "rejeitar", "revisor": "Revisor Sintetico", "comentario": "Rejeitado",
+        "correcoes": {},
+    }
+    tabelas = []
+    monkeypatch.setattr(st, "container", lambda *args, **kwargs: nullcontext())
+    monkeypatch.setattr(st, "markdown", lambda *args, **kwargs: None)
+    monkeypatch.setattr(st, "caption", lambda *args, **kwargs: None)
+    monkeypatch.setattr(st, "dataframe", lambda frame, **kwargs: tabelas.append(frame))
+
+    tela._review(normalize_document(raw))
+    assert tabelas == []

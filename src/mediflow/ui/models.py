@@ -10,6 +10,7 @@ conhece os nomes de campos do contrato.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from mediflow.ui.config import (
@@ -113,6 +114,76 @@ def _received_at(raw: dict) -> tuple[str | None, str | None]:
     if raw.get(_UI_RECEIVED_KEY):
         return raw[_UI_RECEIVED_KEY], "interface"
     return None, None
+
+
+# Campos conhecidos da revisao, usando a terminologia do contrato v0.1.
+_REVIEW_FIELD_NAMES = {
+    "classificacao.nivel_prioridade_documental": "Prioridade documental",
+    "classificacao.tipo_documento": "Categoria do documento",
+    "decisao_roteamento.destino_principal": "Destino de encaminhamento",
+    "dados_extraidos.paciente.nome": "Nome do paciente",
+    "dados_extraidos.paciente.nome_status": "Legibilidade do nome do paciente",
+    "dados_extraidos.profissional.nome": "Nome do profissional",
+    "dados_extraidos.medicamentos": "Medicamentos e dosagens",
+}
+
+
+def _review_value(path: str, value: Any) -> str:
+    """Valor original/corrigido, sem confundir revisao com extracao da IA."""
+    if path == "classificacao.nivel_prioridade_documental":
+        return next((v["label"] for v in PRIORITIES.values()
+                     if v["contract"] == value), str(value) if value is not None else "—")
+    if path == "classificacao.tipo_documento":
+        return DOCUMENT_TYPES.get(value, str(value) if value is not None else "—")
+    if path == "decisao_roteamento.destino_principal":
+        return DESTINATIONS.get(value, str(value) if value is not None else "—")
+    if path == "dados_extraidos.medicamentos":
+        if not isinstance(value, list):
+            return "—" if value is None else str(value)
+        itens = []
+        for item in value:
+            if not isinstance(item, dict):
+                itens.append(str(item))
+                continue
+            nome = str(item.get("nome") or "—")
+            dose = _field_value(item.get("dosagem_texto"), item.get("dosagem_status"))
+            itens.append(f"{nome}: {dose}")
+        return "; ".join(itens) if itens else "(nenhum medicamento)"
+    if path.endswith("_status") and isinstance(value, str):
+        return FIELD_STATUS_LABELS.get(value, value)
+    if value is None or value == "":
+        return "—"
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    return str(value)
+
+
+def _review_changes(raw: dict, corrections: dict) -> list[dict]:
+    """Compara campos modificados com o resultado ORIGINAL, sem aplicar o patch.
+
+    Mantem inclusive chaves novas/inesperadas explicitas, sem ocultar informacao.
+    """
+    rows = []
+
+    def visit(prefix: str, changed: dict) -> None:
+        for key, updated in changed.items():
+            path = f"{prefix}.{key}" if prefix else key
+            if isinstance(updated, dict) and updated:
+                visit(path, updated)
+                continue
+            original = raw
+            for part in path.split("."):
+                original = original.get(part) if isinstance(original, dict) else None
+            rows.append({
+                "field": _REVIEW_FIELD_NAMES.get(path, path),
+                "path": path,
+                "original": _review_value(path, original),
+                "corrected": _review_value(path, updated),
+            })
+
+    if isinstance(corrections, dict):
+        visit("", corrections)
+    return rows
 
 
 def normalize_document(raw: dict | None) -> dict:
@@ -226,6 +297,8 @@ def normalize_document(raw: dict | None) -> dict:
         "review": {
             "action": review.get("acao"), "reviewer": review.get("revisor"),
             "comment": review.get("comentario"), "reviewed_at": review.get("revisado_em"),
+            "changes": _review_changes(raw, _d(review.get("correcoes"))),
+            "result_key": review.get("chave_resultado"),
         } if isinstance(review, dict) else None,
         "raw": raw,
     }
