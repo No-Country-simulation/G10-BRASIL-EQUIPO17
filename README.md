@@ -19,7 +19,7 @@ O MediFlow possui um MVP funcional com interface Streamlit, recebimento de arqui
 - **Validação integrada com serviços reais:** os três cenários foram processados com Google Gemini e Oracle Cloud Infrastructure (OCI) Object Storage reais, com 12 objetos auditados. Consulte o [relatório da validação integrada](docs/29_h16_homologacao_http_gemini_oci_real.md).
 - **Validação de persistência e revisão humana:** em execução posterior, dois exemplos textuais sintéticos foram processados com resultados de referência e OCI real, sem Gemini real. Foram validados índices por status, gravação e recuperação de revisão humana e isolamento de revisões entre reprocessamentos: 14 novos objetos íntegros, 43 objetos auditados no total e 29 históricos preservados por SHA-256. Consulte o [relatório de persistência e revisão humana](docs/31_h17_homologacao_persistencia_oci_real.md).
 - **Extração multimodal híbrida (optativa):** envio de PDF ou imagem original ao Gemini junto com referência textual verificável. Três cenários aprovados com Gemini real e FakeOCI, sem OCI real nesta execução. [Relatório e limitações](docs/32_homologacao_multimodal_gemini.md).
-- **Qualidade automatizada:** 624 testes offline aprovados e três deselecionados (21/11/2026), compilação sem erros; CI Python 3.12/3.13 já aprovada na base anterior de 601 testes.
+- **Qualidade automatizada:** 624 testes offline aprovados e três deselecionados (21/11/2026), compilação sem erros; CI Python 3.12/3.13 aprovada após integrar a extração multimodal ([execução pós-merge](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/actions/runs/44974502834)).
 
 As validações reais e a demonstração local são execuções distintas. Não há validação clínica nem autorização para uso com dados reais de pacientes.
 
@@ -109,6 +109,8 @@ O armazenamento confirmado no JSON da demonstração **não significa** que um o
 No modo Gemini local controlado, `MEDIFLOW_ENABLE_GEMINI_MULTIMODAL=true` envia os bytes originais de PDF/PNG/JPEG junto com o texto extraído independentemente e o schema JSON. O texto é usado para conferir trechos e páginas das evidências. A confirmação independente de alertas e as regras permanecem inalteradas. Ausência de texto verificável ou extração inválida bloqueia o processamento, sem fallback silencioso. O padrão permanece textual, inclusive para texto livre.
 
 Para ativar, configure a variável no processo de `mediflow.api.app_gemini_local:app` conforme os [controles Gemini local](docs/25_homologacao_gemini_local_fakeoci.md), mantendo OCI real desativada. Não exponha o serviço e use somente os documentos sintéticos autorizados. A [homologação multimodal](docs/32_homologacao_multimodal_gemini.md) registra os resultados e as tentativas divergentes. Este ensaio não utiliza a OCI real nem a interface; as validações anteriores são distintas.
+
+**Capacidade e escopo:** no modo textual o Gemini recebe o texto extraído; no modo híbrido recebe também o arquivo original, podendo considerar tabelas, colunas e layout. A referência textual continua obrigatória, e as evidências precisam corresponder a trechos verificáveis. Isso não garante recuperação de texto ilegível nem aceitação de qualquer resposta do modelo. Os modos de triagem controlados continuam restritos às amostras sintéticas oficiais; a API de desenvolvimento tem rotas isoladas de extração, não o fluxo completo de triagem. Documentos externos, mesmo fictícios, exigem validação experimental separada. Não enviar dados reais de pacientes nem interpretar imagens médicas para diagnóstico.
 
 ## Fluxo de decisão do agente
 
@@ -486,7 +488,7 @@ A suíte automatizada cobre contratos, integridade, roteamento, RAG, LangGraph, 
 .venv/bin/python -m compileall -q src scripts tests
 ```
 
-**Validação consolidada (21/11/2026):** **624 testes offline aprovados e 3 deselecionados**, compilação sem erros. A base de 601 testes tinha CI aprovada em Python 3.12 e 3.13. Os testes excluídos da regressão offline são os que envolvem Gemini real. Os relatórios abaixo documentam separadamente as validações com serviços externos e os ensaios controlados.
+**Validação consolidada (21/11/2026):** **624 testes offline aprovados e 3 deselecionados**, compilação sem erros. A CI pós-merge do [PR #71](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/71) foi aprovada em Python 3.12 e 3.13 ([execução](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/actions/runs/44974502834)). Os testes excluídos da regressão offline são os que envolvem Gemini real. Os relatórios abaixo documentam separadamente as validações com serviços externos e os ensaios controlados.
 
 **Documentos de evidência:**
 
@@ -501,6 +503,10 @@ A suíte automatizada cobre contratos, integridade, roteamento, RAG, LangGraph, 
 - [Validação HTTP com Gemini real e armazenamento simulado](docs/27_h15_homologacao_http_gemini_real.md)
 - [Validação integrada com Gemini e OCI reais (3/3 cenários)](docs/29_h16_homologacao_http_gemini_oci_real.md)
 - [Validação OCI de índices, revisão humana e reprocessamento (2 cenários, 3 execuções)](docs/31_h17_homologacao_persistencia_oci_real.md)
+
+## Implantação em nuvem — situação reportada
+
+Em 21/11/2026, a frente de infraestrutura reportou novo processamento bem-sucedido do DOC-001 e 47 objetos no bucket de desenvolvimento. Esse inventário informado não substitui a auditoria anterior de 43 objetos. Foram preparadas VCN, subnet pública, Internet Gateway, rota e lista de segurança na região São Paulo (`sa-saopaulo-1`), com SSH restrito e sem exposição externa das portas FastAPI/Streamlit. A criação da VM Ampere `VM.Standard.A1.Flex` (2 OCPUs, 12 GB) foi bloqueada por indisponibilidade de capacidade (`Out of capacity` em AD-1). A VM e a execução da aplicação nela ainda não foram comprovadas. O objetivo é utilizar recursos Always Free, sem alegar elegibilidade ou ausência de cobrança já verificadas. A validação anterior do Object Storage permanece distinta do deploy Compute, e o MVP pode ser reproduzido localmente.
 
 ## Segurança e limitações
 
