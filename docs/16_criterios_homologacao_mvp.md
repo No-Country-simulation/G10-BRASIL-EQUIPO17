@@ -10,7 +10,8 @@
 | Extração com Gemini real | 3/3 cenários em fluxo HTTP com armazenamento simulado. |
 | Integração com Gemini e OCI reais | 3/3 cenários em fluxo HTTP, com 12 objetos auditados. |
 | Persistência e revisão humana na OCI real | Dois cenários textuais, três execuções e uma revisão humana; 14 novos objetos íntegros, 29 históricos preservados e 43 objetos auditados. Extração de referência, sem Gemini real. |
-| Interface e testes automatizados | 601 testes offline aprovados, 3 deselecionados, compilação sem erros e CI Python 3.12/3.13 aprovada na integração das correções da interface (PR #67). |
+| Extração multimodal híbrida | 3/3 cenários aprovados com Gemini real e FakeOCI; dois PDFs e um PNG, sem OCI real; [relatório](32_homologacao_multimodal_gemini.md). |
+| Interface e testes automatizados | 624 testes offline aprovados, 3 deselecionados, compilação sem erros; CI Python 3.12/3.13 aprovada na base de 601 testes (PR #67). |
 
 **Interpretação:** os três cenários foram comprovados com serviços reais no escopo indicado. A validação de persistência e revisão humana é uma execução distinta. Os controles negativos de falhas externas foram testados com simulação; não se atribui a eles comprovação de falhas reais de provedores. Não há validação clínica. Consulte os [relatórios da integração real](29_h16_homologacao_http_gemini_oci_real.md) e da [persistência e revisão humana](31_h17_homologacao_persistencia_oci_real.md).
 
@@ -97,7 +98,7 @@ Para todos: `documento_id` consistente, evidências referentes a texto efetivame
 | Integração de código | API, extração, RAG, confirmação independente, regras, LangGraph, persistência e interface integrados e testados. |
 | Serviços reais | Os três cenários foram validados com Gemini e OCI reais. A revisão humana e os índices foram comprovados em validação posterior específica com OCI real e extração de referência. |
 | Tratamento de falhas | Os testes de falhas externas utilizam simulações controladas; não comprovam todas as falhas possíveis em provedores reais. |
-| Qualidade automatizada | Regressão consolidada com 601 testes offline aprovados, 3 deselecionados, compilação sem erros e CI Python 3.12/3.13 aprovada. |
+| Qualidade automatizada | Regressão consolidada com 624 testes offline aprovados e 3 deselecionados; compilação sem erros. CI Python 3.12/3.13 aprovada na base anterior. |
 
 **Limite das evidências:** a aprovação nos cenários sintéticos não equivale a certificação clínica ou homologação irrestrita de todos os controles operacionais. Latência foi registrada em ensaios específicos; custo e tokens do Gemini não foram medidos. A interface permanece restrita ao escopo educacional e controlado, com revisor sem autenticação. Os resultados simulados e os resultados com serviços externos devem ser interpretados separadamente.
 
@@ -131,4 +132,4 @@ git diff --check
 
 **A regressão offline não requer credenciais Gemini ou OCI.** Os testes utilizam adaptadores controlados quando necessário. As validações reais possuem procedimentos e evidências próprios.
 
-**Última regressão consolidada registrada:** 20/11/2026 — **601 passed, 3 deselected**; compilação e verificação de formatação sem erros, conforme validação do PR #67.
+**Última regressão consolidada registrada:** 21/11/2026 — **624 passed, 3 deselected**; compilação e formatação sem erros. A CI da base anterior (PR #67) permanece como registro histórico. [Homologação multimodal e evidências](32_homologacao_multimodal_gemini.md).
