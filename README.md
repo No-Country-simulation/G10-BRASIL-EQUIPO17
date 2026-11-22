@@ -18,7 +18,8 @@ O MediFlow possui um MVP funcional com interface Streamlit, recebimento de arqui
 - **Demonstração local:** utiliza resultados de extração de referência (fixtures) e armazenamento temporário em memória (FakeOCI). Não exige credenciais externas nem faz chamadas ao Gemini ou à OCI real.
 - **Validação integrada com serviços reais:** os três cenários foram processados com Google Gemini e Oracle Cloud Infrastructure (OCI) Object Storage reais, com 12 objetos auditados. Consulte o [relatório da validação integrada](docs/29_h16_homologacao_http_gemini_oci_real.md).
 - **Validação de persistência e revisão humana:** em execução posterior, dois exemplos textuais sintéticos foram processados com resultados de referência e OCI real, sem Gemini real. Foram validados índices por status, gravação e recuperação de revisão humana e isolamento de revisões entre reprocessamentos: 14 novos objetos íntegros, 43 objetos auditados no total e 29 históricos preservados por SHA-256. Consulte o [relatório de persistência e revisão humana](docs/31_h17_homologacao_persistencia_oci_real.md).
-- **Qualidade automatizada:** 601 testes offline aprovados e três deselecionados, compilação sem erros e integração contínua aprovada em Python 3.12 e 3.13.
+- **Extração multimodal híbrida (optativa):** envio de PDF ou imagem original ao Gemini junto com referência textual verificável. Três cenários aprovados com Gemini real e FakeOCI, sem OCI real nesta execução. [Relatório e limitações](docs/32_homologacao_multimodal_gemini.md).
+- **Qualidade automatizada:** 624 testes offline aprovados e três deselecionados (21/11/2026), compilação sem erros; CI Python 3.12/3.13 já aprovada na base anterior de 601 testes.
 
 As validações reais e a demonstração local são execuções distintas. Não há validação clínica nem autorização para uso com dados reais de pacientes.
 
@@ -44,6 +45,7 @@ As validações reais e a demonstração local são execuções distintas. Não 
 |---|---|
 | Recepção de PDF, PNG, JPEG e texto, com manifesto e SHA-256 | **Implementada**; testes HTTP e validações de integridade |
 | OCR e extração estruturada com Google Gemini | **Implementados**; extração com Gemini real validada no fluxo HTTP dos três cenários, com armazenamento simulado |
+| Extração multimodal híbrida optativa | **Validada com Gemini real e FakeOCI**: 2 PDFs e 1 PNG; JPEG coberto offline; modo textual preservado |
 | Recuperação de referências (RAG) | **Implementada e executada localmente**, com fichas versionadas |
 | Confirmação de marcador de alerta no original | **Implementada** com leitura independente da resposta da IA |
 | Regras de encaminhamento R001–R006 e LangGraph | **Implementados e testados localmente** |
@@ -101,6 +103,12 @@ O armazenamento confirmado no JSON da demonstração **não significa** que um o
 | Testes e homologação | `tests/`, `scripts/`, `docs/evidencias/` |
 
 > O grafo LangGraph implementa **o subfluxo condicional de decisão**. Extração, confirmação documental, RAG e persistência são coordenados pelo serviço Python; não há alegação de que todo o pipeline externo esteja dentro de um único grafo.
+
+### Extração multimodal híbrida (optativa)
+
+No modo Gemini local controlado, `MEDIFLOW_ENABLE_GEMINI_MULTIMODAL=true` envia os bytes originais de PDF/PNG/JPEG junto com o texto extraído independentemente e o schema JSON. O texto é usado para conferir trechos e páginas das evidências. A confirmação independente de alertas e as regras permanecem inalteradas. Ausência de texto verificável ou extração inválida bloqueia o processamento, sem fallback silencioso. O padrão permanece textual, inclusive para texto livre.
+
+Para ativar, configure a variável no processo de `mediflow.api.app_gemini_local:app` conforme os [controles Gemini local](docs/25_homologacao_gemini_local_fakeoci.md), mantendo OCI real desativada. Não exponha o serviço e use somente os documentos sintéticos autorizados. A [homologação multimodal](docs/32_homologacao_multimodal_gemini.md) registra os resultados e as tentativas divergentes. Este ensaio não utiliza a OCI real nem a interface; as validações anteriores são distintas.
 
 ## Fluxo de decisão do agente
 
@@ -478,9 +486,11 @@ A suíte automatizada cobre contratos, integridade, roteamento, RAG, LangGraph, 
 .venv/bin/python -m compileall -q src scripts tests
 ```
 
-**Validação consolidada (20/11/2026):** **601 testes offline aprovados e 3 deselecionados**, compilação sem erros e integração contínua aprovada em Python 3.12 e 3.13. Os testes excluídos da regressão offline são os que envolvem Gemini real. Os relatórios abaixo documentam separadamente as validações com serviços externos e os ensaios controlados.
+**Validação consolidada (21/11/2026):** **624 testes offline aprovados e 3 deselecionados**, compilação sem erros. A base de 601 testes tinha CI aprovada em Python 3.12 e 3.13. Os testes excluídos da regressão offline são os que envolvem Gemini real. Os relatórios abaixo documentam separadamente as validações com serviços externos e os ensaios controlados.
 
 **Documentos de evidência:**
+
+- [Homologação multimodal com Gemini real e FakeOCI](docs/32_homologacao_multimodal_gemini.md) ([JSON](docs/evidencias/multimodal_gemini_fakeoci.json))
 
 - [Critérios técnicos de aceite do MVP](docs/16_criterios_homologacao_mvp.md)
 - [Validação isolada da persistência OCI real](docs/17_homologacao_h09_persistencia_oci_real.md)

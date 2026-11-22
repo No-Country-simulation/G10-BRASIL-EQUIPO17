@@ -37,6 +37,7 @@ flowchart LR
 |---|---|---|
 | Demonstração local | Resultados de extração de referência (fixtures) | Temporário em memória (FakeOCI) |
 | Validação da extração real | Gemini, com OCR quando aplicável | FakeOCI |
+| Validação multimodal híbrida optativa | Gemini com original PDF/imagem e referência textual independente | FakeOCI |
 | Validação integrada com serviços reais | Gemini, com OCR quando aplicável | OCI Object Storage |
 | Validação específica de persistência e revisão humana | Fixtures textuais | OCI Object Storage |
 
@@ -69,7 +70,8 @@ A API, a recuperação de referências (RAG), as regras e o grafo de decisão s�
 - **Extração real:** três cenários aprovados com Gemini real e FakeOCI.
 - **Integração real:** três cenários aprovados com Gemini e OCI Object Storage no mesmo fluxo HTTP, com 12 objetos auditados. [Relatório de integração real](29_h16_homologacao_http_gemini_oci_real.md).
 - **Persistência e revisão humana na OCI:** dois cenários textuais, três execuções, três índices de status e uma revisão humana gravada e recuperada. O reprocessamento não herdou a revisão anterior. Foram auditados 43 objetos, incluindo 14 novos e 29 históricos preservados por SHA-256. Essa validação utilizou extração de referência, sem chamadas Gemini reais. [Relatório de persistência e revisão humana](31_h17_homologacao_persistencia_oci_real.md).
-- **Qualidade automatizada:** 601 testes offline aprovados e 3 deselecionados, compilação sem erros e integração contínua aprovada em Python 3.12 e 3.13 (20/11/2026).
+- **Extração multimodal híbrida:** três cenários aprovados com os bytes originais (dois PDFs e um PNG) enviados ao Gemini real junto com a referência textual, com FakeOCI. Ativação optativa; validação de evidências e regras preservadas. [Relatório e limitações](32_homologacao_multimodal_gemini.md).
+- **Qualidade automatizada:** 624 testes offline aprovados e 3 deselecionados, compilação sem erros (21/11/2026); CI Python 3.12/3.13 já aprovada na base de 601 testes.
 
 ### Escopo de utilização
 
@@ -107,4 +109,5 @@ Para reproduzir a aplicação, consulte o [README técnico](../README.md) e o [g
 | Validação da extração com Gemini real | [Relatório de validação da extração](27_h15_homologacao_http_gemini_real.md) |
 | Validação integrada com Gemini e OCI reais | [Relatório de integração real](29_h16_homologacao_http_gemini_oci_real.md) |
 | Validação da persistência e revisão humana na OCI real | [Relatório de persistência e revisão humana](31_h17_homologacao_persistencia_oci_real.md) |
+| Validação multimodal com Gemini real e FakeOCI | [Relatório](32_homologacao_multimodal_gemini.md) |
 | Critérios técnicos de homologação | [Matriz de critérios e evidências](16_criterios_homologacao_mvp.md) |

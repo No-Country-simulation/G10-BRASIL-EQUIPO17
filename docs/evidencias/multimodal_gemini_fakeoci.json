@@ -1,0 +1,408 @@
+{
+  "escopo": "homologacao_multimodal_real_controlada_com_fakeoci",
+  "data_brt": "2026-11-21",
+  "git_commit_base": "dbea56c67952e3cff54e6a4a38eb0817c40c542a",
+  "sha256_patch_funcional_homologado": "736f828aba217de0279ea5ebfd9568e3b2d48cb5fde47a8c232495dee5e9ef7a",
+  "regressao_offline": {
+    "aprovados": 624,
+    "deselecionados": 3,
+    "python": "3.13.7"
+  },
+  "cenarios_aprovados": 3,
+  "cenarios_previstos": 3,
+  "execucoes_reais_registradas": [
+    {
+      "sha256_registro_original": "8ee204b508448dc2f1fc0f74225e2134a8234de24416b8eac78ff5f0c6b75148",
+      "registro": {
+        "etapa": "M07",
+        "documento_id": "DOC-001",
+        "git_commit_base": "dbea56c67952e3cff54e6a4a38eb0817c40c542a",
+        "sha256_patch": "bbfec778b8c87f970bcd00ea18087f05ddc0d8552742bcb2264339c55962152f",
+        "timestamp_utc": "2026-11-22T01:05:17.612952+00:00",
+        "chamadas_logicas_gemini": 1,
+        "requisicao_multimodal_verificada": true,
+        "resposta_sdk_recebida": true,
+        "tentativas_oci_bloqueadas": 0,
+        "oci_real": false,
+        "streamlit_executado": false,
+        "status": "nao_aprovado",
+        "modo_diagnostico": false,
+        "fase": "PROCESSAMENTO",
+        "sdk": "2.34.0",
+        "sha256_amostra": "95b0340eb0e78f588d25ed41fd0e66e83bcd9eccf9c19fc64a76ab525f46e6e7",
+        "mime": "application/pdf",
+        "bytes": 45204,
+        "sdk_oci_instalado": false,
+        "modelo": "gemini-3.5-flash-lite",
+        "http_upload": 201,
+        "duracao_chamada_s": 4.075,
+        "http_processamento": 200,
+        "regra": "R006",
+        "destino": "auditoria_humana",
+        "status_resultado": "aguardando_auditoria",
+        "categoria": "laudo_laboratorial",
+        "revisao_humana": true,
+        "numero_evidencias": 11,
+        "rag_status": "consultado",
+        "erro_tipo": "Bloqueio",
+        "erro_controle": "DECISAO_DIVERGENTE"
+      }
+    },
+    {
+      "sha256_registro_original": "8524efffba9d87e2af260836f986c127740b612fbd31b72b5b6639949c7973e8",
+      "registro": {
+        "etapa": "M07",
+        "documento_id": "DOC-001",
+        "git_commit_base": "dbea56c67952e3cff54e6a4a38eb0817c40c542a",
+        "sha256_patch": "bbfec778b8c87f970bcd00ea18087f05ddc0d8552742bcb2264339c55962152f",
+        "timestamp_utc": "2026-11-22T01:13:48.326458+00:00",
+        "chamadas_logicas_gemini": 1,
+        "requisicao_multimodal_verificada": true,
+        "resposta_sdk_recebida": true,
+        "tentativas_oci_bloqueadas": 0,
+        "oci_real": false,
+        "streamlit_executado": false,
+        "status": "nao_aprovado",
+        "modo_diagnostico": false,
+        "fase": "PROCESSAMENTO",
+        "sdk": "2.34.0",
+        "sha256_amostra": "95b0340eb0e78f588d25ed41fd0e66e83bcd9eccf9c19fc64a76ab525f46e6e7",
+        "mime": "application/pdf",
+        "bytes": 45204,
+        "sdk_oci_instalado": false,
+        "modelo": "gemini-3.5-flash-lite",
+        "http_upload": 201,
+        "duracao_chamada_s": 3.371,
+        "http_processamento": 200,
+        "regra": "R006",
+        "destino": "auditoria_humana",
+        "status_resultado": "aguardando_auditoria",
+        "categoria": "laudo_laboratorial",
+        "revisao_humana": true,
+        "numero_evidencias": 11,
+        "rag_status": "consultado",
+        "indicador_qualidade": 0.7,
+        "indicador_calibrado": false,
+        "limiar_qualidade": 0.75,
+        "integridade_documental": "suficiente",
+        "quantidade_campos_ausentes": 0,
+        "quantidade_campos_ilegiveis": 0,
+        "quantidade_conflitos": 0,
+        "profissional_identificado": true,
+        "cobertura_campos_minimos": [
+          {
+            "campo": "paciente.nome",
+            "ancorado_motor": false,
+            "com_prefixo_dados_extraidos": true
+          },
+          {
+            "campo": "exame.nome",
+            "ancorado_motor": false,
+            "com_prefixo_dados_extraidos": true
+          },
+          {
+            "campo": "exame.conclusao",
+            "ancorado_motor": false,
+            "com_prefixo_dados_extraidos": true
+          },
+          {
+            "campo": "exame.resultados[]",
+            "ancorado_motor": false,
+            "com_prefixo_dados_extraidos": true
+          }
+        ],
+        "quantidade_evidencias_com_prefixo": 11,
+        "quantidade_campos_minimos_ancorados": 0,
+        "fallback_qualidade_baixa": true,
+        "regras_disparadas": [
+          "R006"
+        ],
+        "persistencia_fakeoci_releitura": true,
+        "objetos_fakeoci": 5,
+        "prefixos": {
+          "originais": 1,
+          "metadados": 1,
+          "historicos": 1,
+          "resultados": 1,
+          "auditoria_humana": 1
+        },
+        "contrato_resultado": "0.1",
+        "erro_tipo": "Bloqueio",
+        "erro_controle": "DECISAO_DIVERGENTE"
+      }
+    },
+    {
+      "sha256_registro_original": "bd66cc9791ab60feb37c01ce451adac478b038a97dfa9d4380941423f719796c",
+      "registro": {
+        "etapa": "M07",
+        "documento_id": "DOC-001",
+        "git_commit_base": "dbea56c67952e3cff54e6a4a38eb0817c40c542a",
+        "sha256_patch": "736f828aba217de0279ea5ebfd9568e3b2d48cb5fde47a8c232495dee5e9ef7a",
+        "timestamp_utc": "2026-11-22T01:28:35.153621+00:00",
+        "chamadas_logicas_gemini": 1,
+        "requisicao_multimodal_verificada": true,
+        "resposta_sdk_recebida": true,
+        "tentativas_oci_bloqueadas": 0,
+        "oci_real": false,
+        "streamlit_executado": false,
+        "status": "aprovado_real_controlado",
+        "modo_diagnostico": false,
+        "fase": "PROCESSAMENTO",
+        "sdk": "2.34.0",
+        "sha256_amostra": "95b0340eb0e78f588d25ed41fd0e66e83bcd9eccf9c19fc64a76ab525f46e6e7",
+        "mime": "application/pdf",
+        "bytes": 45204,
+        "sdk_oci_instalado": false,
+        "modelo": "gemini-3.5-flash-lite",
+        "http_upload": 201,
+        "duracao_chamada_s": 3.359,
+        "http_processamento": 200,
+        "regra": "R005",
+        "destino": "prontuario_documental",
+        "status_resultado": "processado",
+        "categoria": "laudo_laboratorial",
+        "revisao_humana": false,
+        "numero_evidencias": 14,
+        "rag_status": "consultado",
+        "indicador_qualidade": 1.0,
+        "indicador_calibrado": false,
+        "limiar_qualidade": 0.75,
+        "integridade_documental": "suficiente",
+        "quantidade_campos_ausentes": 0,
+        "quantidade_campos_ilegiveis": 0,
+        "quantidade_conflitos": 0,
+        "profissional_identificado": true,
+        "cobertura_campos_minimos": [
+          {
+            "campo": "paciente.nome",
+            "ancorado_motor": true,
+            "com_prefixo_dados_extraidos": false
+          },
+          {
+            "campo": "exame.nome",
+            "ancorado_motor": true,
+            "com_prefixo_dados_extraidos": false
+          },
+          {
+            "campo": "exame.conclusao",
+            "ancorado_motor": true,
+            "com_prefixo_dados_extraidos": false
+          },
+          {
+            "campo": "exame.resultados[]",
+            "ancorado_motor": true,
+            "com_prefixo_dados_extraidos": false
+          }
+        ],
+        "quantidade_evidencias_com_prefixo": 0,
+        "quantidade_campos_minimos_ancorados": 4,
+        "fallback_qualidade_baixa": false,
+        "regras_disparadas": [
+          "R005"
+        ],
+        "persistencia_fakeoci_releitura": true,
+        "objetos_fakeoci": 5,
+        "prefixos": {
+          "originais": 1,
+          "metadados": 1,
+          "historicos": 1,
+          "resultados": 1,
+          "processados": 1
+        },
+        "contrato_resultado": "0.1"
+      }
+    },
+    {
+      "sha256_registro_original": "fab285566cd3528dd98c944a7085a304238f0a26488767c6359f4a2941fe370f",
+      "registro": {
+        "etapa": "M07",
+        "documento_id": "DOC-002",
+        "git_commit_base": "dbea56c67952e3cff54e6a4a38eb0817c40c542a",
+        "sha256_patch": "736f828aba217de0279ea5ebfd9568e3b2d48cb5fde47a8c232495dee5e9ef7a",
+        "timestamp_utc": "2026-11-22T01:35:57.968999+00:00",
+        "chamadas_logicas_gemini": 1,
+        "requisicao_multimodal_verificada": true,
+        "resposta_sdk_recebida": true,
+        "tentativas_oci_bloqueadas": 0,
+        "oci_real": false,
+        "streamlit_executado": false,
+        "status": "nao_aprovado",
+        "modo_diagnostico": false,
+        "fase": "PROCESSAMENTO",
+        "sdk": "2.34.0",
+        "sha256_amostra": "1d75a3f0d8987fb6f3afb338ff6956644616a6090e90a7f98bbd4e602ebc3490",
+        "mime": "application/pdf",
+        "bytes": 45519,
+        "sdk_oci_instalado": false,
+        "modelo": "gemini-3.5-flash-lite",
+        "http_upload": 201,
+        "duracao_chamada_s": 15.854,
+        "http_processamento": 502,
+        "codigo_http_api": "EXTRACAO_INDISPONIVEL",
+        "erro_tipo": "Bloqueio",
+        "erro_controle": "PROCESSAMENTO_NAO_CONFIRMADO"
+      }
+    },
+    {
+      "sha256_registro_original": "2f4c3ded0b95a7f7595cbeef8ac2577e83c87c17a9e05f1900073ec6ba229797",
+      "registro": {
+        "etapa": "M07",
+        "documento_id": "DOC-002",
+        "git_commit_base": "dbea56c67952e3cff54e6a4a38eb0817c40c542a",
+        "sha256_patch": "736f828aba217de0279ea5ebfd9568e3b2d48cb5fde47a8c232495dee5e9ef7a",
+        "timestamp_utc": "2026-11-22T01:39:38.379454+00:00",
+        "chamadas_logicas_gemini": 1,
+        "requisicao_multimodal_verificada": true,
+        "resposta_sdk_recebida": true,
+        "tentativas_oci_bloqueadas": 0,
+        "oci_real": false,
+        "streamlit_executado": false,
+        "status": "aprovado_real_controlado",
+        "modo_diagnostico": false,
+        "fase": "PROCESSAMENTO",
+        "sdk": "2.34.0",
+        "sha256_amostra": "1d75a3f0d8987fb6f3afb338ff6956644616a6090e90a7f98bbd4e602ebc3490",
+        "mime": "application/pdf",
+        "bytes": 45519,
+        "sdk_oci_instalado": false,
+        "modelo": "gemini-3.5-flash-lite",
+        "http_upload": 201,
+        "duracao_chamada_s": 2.328,
+        "validador_acionado": true,
+        "validacao_extracao_aprovada": true,
+        "adaptador_extracao_concluido": true,
+        "http_processamento": 200,
+        "regra": "R001",
+        "destino": "fila_prioritaria_avaliacao_humana",
+        "status_resultado": "aguardando_auditoria",
+        "categoria": "laudo_imagem",
+        "revisao_humana": true,
+        "numero_evidencias": 10,
+        "rag_status": "consultado",
+        "indicador_qualidade": 1.0,
+        "indicador_calibrado": false,
+        "limiar_qualidade": 0.75,
+        "integridade_documental": "suficiente",
+        "quantidade_campos_ausentes": 0,
+        "quantidade_campos_ilegiveis": 0,
+        "quantidade_conflitos": 0,
+        "profissional_identificado": true,
+        "cobertura_campos_minimos": [
+          {
+            "campo": "paciente.nome",
+            "ancorado_motor": true,
+            "com_prefixo_dados_extraidos": false
+          },
+          {
+            "campo": "exame.nome",
+            "ancorado_motor": true,
+            "com_prefixo_dados_extraidos": false
+          },
+          {
+            "campo": "exame.conclusao",
+            "ancorado_motor": true,
+            "com_prefixo_dados_extraidos": false
+          }
+        ],
+        "quantidade_evidencias_com_prefixo": 0,
+        "quantidade_campos_minimos_ancorados": 3,
+        "fallback_qualidade_baixa": false,
+        "regras_disparadas": [
+          "R001",
+          "R005"
+        ],
+        "persistencia_fakeoci_releitura": true,
+        "objetos_fakeoci": 5,
+        "prefixos": {
+          "originais": 1,
+          "metadados": 1,
+          "historicos": 1,
+          "resultados": 1,
+          "auditoria_humana": 1
+        },
+        "contrato_resultado": "0.1"
+      }
+    },
+    {
+      "sha256_registro_original": "5916c6af895e16c5cd17b8962f88f27ff10ea133a39217a3b19c0e1d45743cb0",
+      "registro": {
+        "etapa": "M07",
+        "documento_id": "DOC-005",
+        "git_commit_base": "dbea56c67952e3cff54e6a4a38eb0817c40c542a",
+        "sha256_patch": "736f828aba217de0279ea5ebfd9568e3b2d48cb5fde47a8c232495dee5e9ef7a",
+        "timestamp_utc": "2026-11-22T01:39:54.704252+00:00",
+        "chamadas_logicas_gemini": 1,
+        "requisicao_multimodal_verificada": true,
+        "resposta_sdk_recebida": true,
+        "tentativas_oci_bloqueadas": 0,
+        "oci_real": false,
+        "streamlit_executado": false,
+        "status": "aprovado_real_controlado",
+        "modo_diagnostico": false,
+        "fase": "PROCESSAMENTO",
+        "sdk": "2.34.0",
+        "sha256_amostra": "a92259058e5ded90b08568f7410fe59d0f463c5bd415801301fa8c9696042b10",
+        "mime": "image/png",
+        "bytes": 54583,
+        "sdk_oci_instalado": false,
+        "modelo": "gemini-3.5-flash-lite",
+        "http_upload": 201,
+        "duracao_chamada_s": 3.259,
+        "validador_acionado": true,
+        "validacao_extracao_aprovada": true,
+        "adaptador_extracao_concluido": true,
+        "http_processamento": 200,
+        "regra": "R002",
+        "destino": "auditoria_humana",
+        "status_resultado": "aguardando_auditoria",
+        "categoria": "receituario",
+        "revisao_humana": true,
+        "numero_evidencias": 7,
+        "rag_status": "consultado",
+        "indicador_qualidade": 0.73,
+        "indicador_calibrado": false,
+        "limiar_qualidade": 0.75,
+        "integridade_documental": "insuficiente",
+        "quantidade_campos_ausentes": 0,
+        "quantidade_campos_ilegiveis": 1,
+        "quantidade_conflitos": 0,
+        "profissional_identificado": true,
+        "cobertura_campos_minimos": [
+          {
+            "campo": "paciente.nome",
+            "ancorado_motor": true,
+            "com_prefixo_dados_extraidos": false
+          },
+          {
+            "campo": "medicamentos[].nome",
+            "ancorado_motor": true,
+            "com_prefixo_dados_extraidos": false
+          },
+          {
+            "campo": "medicamentos[].dosagem_texto",
+            "ancorado_motor": false,
+            "com_prefixo_dados_extraidos": false
+          }
+        ],
+        "quantidade_evidencias_com_prefixo": 0,
+        "quantidade_campos_minimos_ancorados": 2,
+        "fallback_qualidade_baixa": false,
+        "regras_disparadas": [
+          "R002"
+        ],
+        "dosagem_ilegivel_preservada": true,
+        "persistencia_fakeoci_releitura": true,
+        "objetos_fakeoci": 5,
+        "prefixos": {
+          "originais": 1,
+          "metadados": 1,
+          "historicos": 1,
+          "resultados": 1,
+          "auditoria_humana": 1
+        },
+        "contrato_resultado": "0.1"
+      }
+    }
+  ],
+  "limitacao": "Tres cenarios sinteticos aprovados; tentativas divergentes preservadas. Nao comprova acuracia clinica, uso de OCI real, contribuicao visual isolada ou confiabilidade estatistica."
+}
