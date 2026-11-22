@@ -29,7 +29,7 @@ São seis chamadas lógicas reais registradas (três aprovadas e três divergent
 
 - Commit-base: `dbea56c67952e3cff54e6a4a38eb0817c40c542a`.
 - SHA-256 do patch funcional corrigido sobre a base: `736f828aba217de0279ea5ebfd9568e3b2d48cb5fde47a8c232495dee5e9ef7a`.
-- Regressão local em Python 3.13.7: 624 aprovados, 3 deselecionados; 40 testes do adaptador, compilação e formatação aprovadas. São 23 novos casos em relação à base de 601 testes. A CI desta alteração será aferida no PR.
+- Regressão local em Python 3.13.7: 624 aprovados, 3 deselecionados; 40 testes do adaptador, compilação e formatação aprovadas. São 23 novos casos em relação à base de 601 testes. A alteração foi integrada pelo [PR #71](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/71); CI pós-merge aprovada em Python 3.12/3.13 ([execução](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/actions/runs/44974502834)).
 - [Registros sanitizados consolidados](evidencias/multimodal_gemini_fakeoci.json), com hashes dos seis registros originais, métricas e resultados de cada execução. Não contêm payload bruto, valores de paciente, chaves de objetos ou credenciais.
 
 ## Reprodução controlada
