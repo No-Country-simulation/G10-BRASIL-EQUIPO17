@@ -53,8 +53,12 @@ _RAG_STATUS = {"nao_consultado": "RAG não consultado.", "sem_resultados": "RAG 
 # Estado do armazenamento OCI -> (cor do badge, rótulo).
 _STORAGE = {"pendente": ("gray", "Pendente"), "confirmado": ("green", "Confirmado"), "falha": ("red", "Falha")}
 
-# Ação da revisão humana -> texto mostrado.
-_REVIEW_ACTIONS = {"aprovar": "aprovado", "corrigir": "aprovado com correções", "rejeitar": "rejeitado"}
+# A decisão humana não altera os KPIs originais; cada decisão recebe cor própria.
+_REVIEW_VISUALS = {
+    "aprovar": ("card_ok_review", ":green[:material/verified:]", "Aprovado sem alterações"),
+    "corrigir": ("card_warn_review", ":orange[:material/edit_note:]", "Aprovado com correções"),
+    "rejeitar": ("card_alert_review", ":red[:material/block:]", "Rejeitado"),
+}
 
 # Cartão do KPI de prioridade: tom de alerta para urgente, âmbar para ambiguidade.
 _PRIORITY_CARD = {"urgente": "card_alert_priority", "ambiguidade": "card_warn_priority"}
@@ -147,7 +151,10 @@ def _actions(doc: dict) -> None:
 
 
 def _kpis(doc: dict) -> None:
-    """Decisão da IA: prioridade, destino e confiança."""
+    """Prioridade, destino e qualidade do processamento ORIGINAL."""
+    st.markdown("**Triagem automatizada — resultado original**")
+    st.caption("Prioridade, destino e qualidade abaixo pertencem ao processamento original. "
+               "Uma decisão humana posterior é apresentada separadamente.")
     p = PRIORITIES.get(doc["priority"], {"icon": ":material/label:"})
     conf = doc["confidence"]
     low = conf is not None and conf < LOW_CONFIDENCE_THRESHOLD
@@ -203,14 +210,42 @@ def _review(doc: dict) -> None:
     r = doc["review"]
     if not r:
         return
-    with st.container(border=True, horizontal=True, vertical_alignment="center", key="card_ok_review"):
+    card_key, icon, decision_label = _REVIEW_VISUALS.get(
+        r.get("action"), ("card_queue_review", ":gray[:material/info:]", "Decisão registrada")
+    )
+    with st.container(border=True, horizontal=True, vertical_alignment="center", key=card_key):
         with st.container(width="content", key="band_icon_review"):
-            st.markdown(":green[:material/verified:]")
+            st.markdown(icon)
         with st.container(gap=None):
-            action = _REVIEW_ACTIONS.get(r.get("action"), r.get("action") or "—")
-            st.markdown(f"**Revisado por {r.get('reviewer') or '—'}** · {action}")
-            st.caption(f"{_fmt_datetime(r.get('reviewed_at'))}"
-                       + (f" · {r['comment']}" if r.get("comment") else ""))
+            st.markdown(f"**Decisão humana: {decision_label}**")
+            st.caption(f"Revisor informado: {r.get('reviewer') or '—'} · "
+                       f"{_fmt_datetime(r.get('reviewed_at'))}"
+                       + (f" · Comentário: {r['comment']}" if r.get("comment") else ""))
+            st.caption("Revisão registrada separadamente; não altera a triagem automatizada original.")
+
+    # Comparativo exclusivamente de leitura: não modifica os dados originais.
+    # Rejeitar + editar e corrigir sao decisoes diferentes: ambas podem registrar
+    # valores declarados pelo revisor, mas nenhuma sobrescreve a triagem original.
+    if r.get("action") in {"corrigir", "rejeitar"}:
+        changes = r.get("changes") or []
+        if r.get("action") == "rejeitar" and not changes:
+            return  # rejeicao sem edicoes: exibir somente a decisao e o motivo
+        with st.container(border=True, key="card_review_changes"):
+            if r.get("action") == "rejeitar":
+                st.markdown("**Alterações informadas durante a rejeição**")
+                st.caption("Valores declarados pelo revisor; não significam aprovação do documento. "
+                           "A extração automatizada original foi preservada.")
+            else:
+                st.markdown("**Correções humanas registradas**")
+                st.caption("Original da triagem × alteração do revisor. "
+                           "A extração da IA e o resultado persistido não foram substituídos.")
+            if changes:
+                rows = [{"Campo": item["field"], "Extração original": item["original"],
+                         "Correção humana": item["corrected"]} for item in changes]
+                st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch",
+                             alt="Comparação de valores originais e correções feitas por pessoa revisora")
+            else:
+                st.warning("A API indica uma correção, mas não retornou detalhes comparáveis.")
 
 
 def _card_title(title: str, caption: str) -> None:
@@ -482,7 +517,7 @@ def render() -> None:
 
     st.space("small")
     tab_data, tab_ev, tab_trace, tab_json = st.tabs([
-        ":material/description: Dados extraídos",
+        ":material/description: Dados extraídos (originais)",
         ":material/fact_check: Evidências",
         ":material/history: Rastreabilidade",
         ":material/data_object: JSON",

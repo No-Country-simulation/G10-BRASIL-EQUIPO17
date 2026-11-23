@@ -13,7 +13,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Annotated
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
 from mediflow.api.composicao_i1_i3_i4_i5 import montar_servico_i1_i3_i4_i5
@@ -31,6 +31,7 @@ from mediflow.api.triage_text import (
 from mediflow.api.uploads import (
     _ler_manifesto,
     armazenamento,
+    fornecer_validador_upload,
     router as router_uploads,
 )
 from mediflow.extraction.port import DocumentoParaExtracao
@@ -151,6 +152,35 @@ class ExtratorFixtureSintetica:
         return ExtracaoIA.model_validate_json(resposta.read_text(encoding="utf-8"))
 
 
+def validar_arquivo_demo(documento_id: str, nome: str, dados: bytes, mime: str) -> None:
+    """Rejeita arquivos fora do catalogo sintetico ANTES da persistencia FakeOCI."""
+    relativo = _AMOSTRAS.get(documento_id)
+    caminho = _RAIZ / relativo if relativo else None
+    mime_esperado = "application/pdf" if documento_id in {"DOC-001", "DOC-002"} else "image/png"
+    if (
+        caminho is None
+        or nome != caminho.name
+        or mime != mime_esperado
+        or dados != caminho.read_bytes()
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "codigo": "AMOSTRA_NAO_AUTORIZADA",
+                "mensagem": (
+                    "Nesta demonstracao so sao aceitos os arquivos originais sinteticos "
+                    "DOC-001 (PDF), DOC-002 (PDF) e DOC-005 (PNG). "
+                    "Use uma das amostras oficiais do projeto. "
+                    "O arquivo enviado nao foi armazenado nem processado."
+                ),
+            },
+        )
+
+
+def fornecer_validador_arquivo_demo():
+    return validar_arquivo_demo
+
+
 def fornecer_storage_demo() -> OCIStorage:
     """Injecao apenas neste app isolado; nao modifica a API principal."""
     return storage_demo
@@ -194,6 +224,7 @@ app.include_router(router_processamento)
 app.include_router(router_revisao)
 app.include_router(router_texto)
 app.dependency_overrides[armazenamento] = fornecer_storage_demo
+app.dependency_overrides[fornecer_validador_upload] = fornecer_validador_arquivo_demo
 app.dependency_overrides[obter_servico_triagem] = fornecer_servico_demo
 app.dependency_overrides[obter_fabrica_servico_texto] = fornecer_fabrica_texto_demo
 app.dependency_overrides[obter_validador_texto] = fornecer_validador_texto_demo

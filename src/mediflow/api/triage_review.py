@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+from hashlib import sha256
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Literal
 from uuid import uuid4
@@ -61,8 +62,11 @@ class Revisao(BaseModel):
             raise ValueError("rejeitar exige comentario com o motivo")
         if self.acao == "corrigir" and not self.correcoes:
             raise ValueError("corrigir exige ao menos uma correcao")
-        if self.acao != "corrigir" and self.correcoes:
-            raise ValueError("correcoes so sao aceitas com acao corrigir")
+        # A rejeicao pode incluir valores declarados pelo revisor, sem aprovar
+        # o documento ou substituir a extracao original. Uma aprovacao simples
+        # continua sem edicoes; para aprovar com alteracoes, usar "corrigir".
+        if self.acao == "aprovar" and self.correcoes:
+            raise ValueError("aprovacao sem alteracoes nao aceita correcoes; use corrigir")
         return self
 
 
@@ -363,9 +367,23 @@ def registrar_revisao(
     chave = f"revisoes/{documento_id}/{agora.strftime(_FORMATO_INSTANTE)}-{revisao_id}.json"
     corpo = json.dumps(registro, ensure_ascii=False, sort_keys=True).encode("utf-8")
     try:
-        storage.upload_bytes_if_absent(chave, corpo, content_type="application/json")
+        hash_esperado = sha256(corpo).hexdigest()
+        hash_gravacao = storage.upload_bytes_if_absent(
+            chave, corpo, content_type="application/json"
+        )
+        if hash_gravacao != hash_esperado:
+            raise ValueError("Hash da revisao divergente.")
+
+        # Confirmacao independente por leitura do objeto persistido.
+        recebido = storage.download_bytes(chave)
+        if not isinstance(recebido, bytes) or recebido != corpo:
+            raise ValueError("Integridade da revisao nao confirmada.")
     except Exception as exc:
-        raise _erro(502, "REVISAO_NAO_PERSISTIDA", "Nao foi possivel registrar a revisao.") from exc
+        raise _erro(
+            502,
+            "REVISAO_NAO_PERSISTIDA",
+            "Nao foi possivel confirmar a gravacao da revisao.",
+        ) from exc
 
     resultado["revisao_humana"] = registro
     return resultado

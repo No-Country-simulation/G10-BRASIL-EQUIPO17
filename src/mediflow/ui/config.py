@@ -168,8 +168,9 @@ FLAG_LABELS = {
     "baixa_confianca": "Indicador de qualidade baixo",
 }
 
-# Estados finais de um documento tratado com sucesso (KPI "Concluídos").
-DONE_STATUSES = ("processed", "approved", "corrected")
+# Estados que encerraram seu fluxo de tratamento (KPI "Finalizados").
+# Uma rejeicao e finalizada, mas nao equivale a aprovacao.
+DONE_STATUSES = ("processed", "approved", "corrected", "rejected")
 
 # Intervalo de atualização automática da Visão geral.
 DASHBOARD_REFRESH = "30s"

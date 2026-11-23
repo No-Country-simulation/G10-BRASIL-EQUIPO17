@@ -410,3 +410,115 @@ def test_reprocessamento_nao_herda_revisao_anterior(cliente):
         if chave.startswith("revisoes/DOC-005/")
     ]
     assert len(chaves_revisao) == 2
+
+
+@pytest.mark.parametrize(
+    "defeito",
+    ["objeto_ausente", "objeto_corrompido", "leitura_indisponivel"],
+)
+def test_revisao_exige_confirmacao_apos_upload(
+    cliente, monkeypatch, defeito
+):
+    """Nunca confirma uma revisao sem leitura integra do objeto."""
+    resultado = processar(cliente, "DOC-005")
+    chave_resultado = resultado["armazenamento_oci"]["chave_resultado"]
+    bytes_resultado = cliente_fakeoci.objetos[chave_resultado]
+
+    gravar_original = cliente_fakeoci.put_object
+    ler_original = cliente_fakeoci.get_object
+
+    def gravar_com_defeito(namespace, bucket, nome, dados, **kwargs):
+        if nome.startswith("revisoes/"):
+            if defeito == "objeto_ausente":
+                # Simula sucesso sem escrita.
+                return None
+            if defeito == "objeto_corrompido":
+                return gravar_original(
+                    namespace, bucket, nome, b"{}", **kwargs
+                )
+        return gravar_original(
+            namespace, bucket, nome, dados, **kwargs
+        )
+
+    def ler_com_defeito(namespace, bucket, nome):
+        if nome.startswith("revisoes/"):
+            raise TimeoutError("SEGREDO_OCI_SIMULADO")
+        return ler_original(namespace, bucket, nome)
+
+    with monkeypatch.context() as m:
+        if defeito == "leitura_indisponivel":
+            m.setattr(
+                cliente_fakeoci, "get_object", ler_com_defeito
+            )
+        else:
+            m.setattr(
+                cliente_fakeoci, "put_object", gravar_com_defeito
+            )
+
+        resposta = revisar(cliente, "DOC-005")
+
+    assert resposta.status_code == 502
+    assert (
+        resposta.json()["detail"]["codigo"]
+        == "REVISAO_NAO_PERSISTIDA"
+    )
+    assert "SEGREDO_OCI_SIMULADO" not in resposta.text
+    assert cliente_fakeoci.objetos[chave_resultado] == bytes_resultado
+
+    revisoes = [
+        chave for chave in cliente_fakeoci.objetos
+        if chave.startswith("revisoes/DOC-005/")
+    ]
+
+    if defeito == "objeto_ausente":
+        assert revisoes == []
+        assert (
+            cliente.get("/v1/triagens/DOC-005")
+            .json()["revisao_humana"] is None
+        )
+
+    elif defeito == "objeto_corrompido":
+        assert len(revisoes) == 1
+        assert cliente_fakeoci.objetos[revisoes[0]] == b"{}"
+        assert (
+            cliente.get("/v1/triagens/DOC-005")
+            .json()["revisao_humana"] is None
+        )
+
+    else:
+        # A gravacao pode ter ocorrido, mas nao foi confirmada
+        # durante a falha de leitura. Nao repetir automaticamente.
+        assert len(revisoes) == 1
+        consulta = cliente.get("/v1/triagens/DOC-005")
+        assert consulta.status_code == 200
+        assert consulta.json()["revisao_humana"]["acao"] == "aprovar"
+
+
+
+def test_ajuste8b_rejeicao_com_alteracoes_persistidas(cliente):
+    resultado = processar(cliente, "DOC-005")
+    chave_resultado = resultado["armazenamento_oci"]["chave_resultado"]
+    original = cliente_fakeoci.objetos[chave_resultado]
+    correcoes = {
+        "classificacao": {"tipo_documento": "solicitacao_exame"},
+        "dados_extraidos": {"paciente": {"nome": "Paciente Sintetico Rejeitado"}},
+    }
+
+    r = revisar(
+        cliente, "DOC-005", acao="rejeitar",
+        comentario="Exame descartado no caso sintetico",
+        correcoes=correcoes,
+    )
+    assert r.status_code == 201, r.text
+    registro = r.json()["revisao_humana"]
+    assert registro["acao"] == "rejeitar"
+    assert registro["correcoes"] == correcoes
+    assert cliente_fakeoci.objetos[chave_resultado] == original
+
+    consulta = cliente.get("/v1/triagens/DOC-005")
+    assert consulta.status_code == 200
+    assert consulta.json()["revisao_humana"]["correcoes"] == correcoes
+    assert consulta.json()["dados_extraidos"] == resultado["dados_extraidos"]
+    pendentes = cliente.get("/v1/triagens", params={"status": "aguardando_auditoria"}).json()
+    assert not any(d["documento_id"] == "DOC-005" and
+                   d["revisao_humana"] is None for d in pendentes)

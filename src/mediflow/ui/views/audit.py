@@ -218,6 +218,11 @@ def _queue_card(queue: list[dict], now: pd.Timestamp) -> list[dict]:
         return rows
 
 
+def _corrections_for_review(action: str, corrections: dict) -> dict | None:
+    """Registra as edicoes ao corrigir OU rejeitar; nao transforma rejeicao em aprovacao."""
+    return corrections if action in {"corrigir", "rejeitar"} and corrections else None
+
+
 def _review_card(backend, doc: dict, next_id: str | None, now: pd.Timestamp) -> None:
     review_off = backend.review_supported() is False
     """Documento selecionado: porquê está na fila, campos editáveis e decisão."""
@@ -339,9 +344,10 @@ def _review_card(backend, doc: dict, next_id: str | None, now: pd.Timestamp) -> 
         action = "rejeitar" if reject else "corrigir" if corrections else "aprovar"
 
         try:
-            # A API só aceita correções junto com a ação "corrigir" (rejeitar descarta as edições).
+            # Rejeicao com edicoes preserva os valores declarados para auditoria,
+            # mas o documento permanece REJEITADO e o resultado original imutavel.
             backend.submit_review(doc["id"], action, reviewer, comment.strip(),
-                                  corrections if action == "corrigir" else None)
+                                  _corrections_for_review(action, corrections))
         except APIError as err:
             show_api_error(err, "A revisão não foi registrada")
             return

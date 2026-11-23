@@ -247,7 +247,17 @@ class MediFlowClient:
         """Envia o original e pede o processamento (duas chamadas à API)."""
         data = {"documento_id": document_id_for(filename), "canal_origem": SOURCE_CHANNEL}
         files = {"arquivo": (filename, content, mime_type)}
-        receipt = self._request("POST", "upload", data=data, files=files)
+        try:
+            receipt = self._request("POST", "upload", data=data, files=files)
+        except APIError as err:
+            if err.status_code == 422 and _error_code(err.detail) == "AMOSTRA_NAO_AUTORIZADA":
+                raise APIError(
+                    "Arquivo fora das amostras autorizadas. A demonstracao local aceita "
+                    "somente os arquivos sinteticos originais DOC-001, DOC-002 e DOC-005 "
+                    "disponiveis no projeto. Nenhum processamento foi iniciado.",
+                    status_code=err.status_code, detail=err.detail,
+                ) from err
+            raise
         path = {"doc_id": receipt["documento_id"], "file_id": receipt["arquivo_id"]}
         return _remember(self._request("POST", "process", path_params=path), base_url=self.base_url)
 
