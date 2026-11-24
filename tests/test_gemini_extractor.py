@@ -422,7 +422,7 @@ def test_multimodal_falha_gemini_sem_fallback_silencioso(monkeypatch, cliente_mu
             ExtratorGemini().extrair(criar_documento(mime_type="application/pdf", conteudo=b"pdf-ficticio"))
     cliente_multimodal.models.generate_content.assert_called_once()
 
-@pytest.mark.parametrize("flag,regra,nota", [("true", "R005", 1.0), ("false", "R006", 0.7)])
+@pytest.mark.parametrize("flag,regra,nota", [("true", "R005", 1.0), ("false", "R005", 1.0)])
 def test_multimodal_corrige_caminhos_e_preserva_motor(monkeypatch, cliente_multimodal, flag, regra, nota):
     from mediflow.rules.motor_deterministico import MotorRegrasDeterministico
     from mediflow_contracts.models import EntradaProcessada, RecuperacaoRAG
@@ -450,7 +450,7 @@ def test_multimodal_corrige_caminhos_e_preserva_motor(monkeypatch, cliente_multi
     referencia = "[Página 1]\n" + "\n".join(trecho for _, trecho in pares)
     with patch("mediflow.extraction.gemini_extractor.extrair_texto_pdf", return_value=referencia):
         extracao = ExtratorGemini().extrair(criar_documento(mime_type="application/pdf", conteudo=b"pdf-ficticio"))
-    esperado = [dict(e, campo=e["campo"].removeprefix("dados_extraidos.")) for e in evidencias] if flag == "true" else evidencias
+    esperado = [dict(e, campo=e["campo"].removeprefix("dados_extraidos.")) for e in evidencias]
     assert [e.model_dump() for e in extracao.evidencias] == esperado
     if flag == "true":
         prompt = cliente_multimodal.models.generate_content.call_args.kwargs["contents"][1]
@@ -461,7 +461,7 @@ def test_multimodal_corrige_caminhos_e_preserva_motor(monkeypatch, cliente_multi
     )
     assert resultado.classificacao.indicador_qualidade.valor == nota
     assert resultado.decisao_roteamento.regra_principal == regra
-    assert resultado.decisao_roteamento.requer_revisao_humana is (flag == "false")
+    assert resultado.decisao_roteamento.requer_revisao_humana is False
 
 
 def test_multimodal_normaliza_medicamento_sem_alterar_sinal_ou_caminho_canonico():
@@ -509,3 +509,193 @@ def test_multimodal_prefixo_nao_contorna_validacao(monkeypatch, cliente_multimod
     with patch("mediflow.extraction.gemini_extractor.extrair_texto_pdf", return_value="[Página 1]\nFicticio"):
         with pytest.raises(ValueError, match=erro):
             ExtratorGemini().extrair(criar_documento(mime_type="application/pdf", conteudo=b"pdf-ficticio"))
+
+
+# REGRESSAO_CAMINHOS_TEXTUAIS_V1
+@pytest.mark.parametrize(
+    "via_pdf",
+    [False, True],
+    ids=["entrada_textual_direta", "pdf_sem_multimodal"],
+)
+def test_regressao_caminhos_textuais_normalizados(
+    monkeypatch, cliente_multimodal, via_pdf
+):
+    import json
+    from mediflow.rules.motor_deterministico import MotorRegrasDeterministico
+    from mediflow_contracts.models import EntradaProcessada, RecuperacaoRAG
+
+    monkeypatch.setenv("MEDIFLOW_ENABLE_GEMINI_MULTIMODAL", "false")
+
+    pares = [
+        ("paciente.nome", "Paciente Ficticio"),
+        ("exame.nome", "Hemograma"),
+        ("exame.conclusao", "Rotina"),
+        ("exame.resultados[0].valor_texto", "13,4"),
+        ("profissional.nome", "Profissional Ficticio"),
+    ]
+
+    payload = {
+        "documento_id": "doc-123",
+        "tipo_documento": "laudo_laboratorial",
+        "dados_extraidos": {
+            "paciente": {
+                "nome": "Paciente Ficticio",
+                "nome_status": "legivel",
+            },
+            "profissional": {"nome": "Profissional Ficticio"},
+            "exame": {
+                "nome": "Hemograma",
+                "conclusao": "Rotina",
+                "resultados": [
+                    {"parametro": "Hemoglobina", "valor_texto": "13,4"}
+                ],
+            },
+        },
+        "evidencias": [
+            {
+                "campo": "dados_extraidos." + campo,
+                "trecho_documento": trecho,
+                "pagina": 1,
+                "origem": "documento",
+            }
+            for campo, trecho in pares
+        ],
+    }
+
+    cliente_multimodal.models.generate_content.return_value.text = (
+        json.dumps(payload)
+    )
+
+    texto = "[Página 1]\n" + "\n".join(
+        trecho for _, trecho in pares
+    )
+
+    extrator = ExtratorGemini()
+
+    if via_pdf:
+        with patch(
+            "mediflow.extraction.gemini_extractor.extrair_texto_pdf",
+            return_value=texto,
+        ):
+            extracao = extrator.extrair(
+                criar_documento(
+                    mime_type="application/pdf",
+                    conteudo=b"pdf-ficticio",
+                )
+            )
+    else:
+        entrada = EntradaTexto(
+            documento_id="doc-123",
+            canal_origem="teste",
+            documento_texto=texto,
+        )
+        extracao = extrator.extrair_texto(entrada)
+
+    cliente_multimodal.models.generate_content.assert_called_once()
+
+    chamada = cliente_multimodal.models.generate_content.call_args.kwargs
+    assert isinstance(chamada["contents"], str)
+
+    assert [e.campo for e in extracao.evidencias] == [
+        campo for campo, _ in pares
+    ]
+
+    resultado = MotorRegrasDeterministico().decidir(
+        extracao,
+        entrada=EntradaProcessada(
+            tipo_entrada="pdf" if via_pdf else "texto",
+            canal_origem="teste",
+        ),
+        rag=RecuperacaoRAG(),
+        alerta_textual_confirmado=False,
+    )
+
+    assert resultado.classificacao.indicador_qualidade.valor == 1.0
+    assert resultado.decisao_roteamento.regra_principal == "R005"
+    assert resultado.decisao_roteamento.requer_revisao_humana is False
+
+
+@pytest.mark.parametrize(
+    "campo",
+    [
+        "dados_extraidos.exame.nome.inexistente",
+        "dados_extraidos.exame.resultados[99].valor_texto",
+        "dados_extraidos.dados_extraidos.paciente.nome",
+    ],
+)
+def test_textual_nao_normaliza_caminho_invalido(
+    cliente_multimodal, campo
+):
+    import json
+
+    payload = {
+        "documento_id": "doc-123",
+        "tipo_documento": "laudo_laboratorial",
+        "dados_extraidos": {
+            "exame": {"nome": "Hemograma"}
+        },
+        "evidencias": [
+            {
+                "campo": campo,
+                "trecho_documento": "Hemograma",
+                "pagina": 1,
+                "origem": "documento",
+            }
+        ],
+    }
+
+    cliente_multimodal.models.generate_content.return_value.text = (
+        json.dumps(payload)
+    )
+
+    entrada = EntradaTexto(
+        documento_id="doc-123",
+        canal_origem="teste",
+        documento_texto="[Página 1]\nHemograma",
+    )
+
+    extracao = ExtratorGemini().extrair_texto(entrada)
+
+    assert extracao.evidencias[0].campo == campo
+
+
+@pytest.mark.parametrize(
+    "pagina,trecho,erro",
+    [
+        (2, "Hemograma", "página inexistente"),
+        (1, "Inventado", "trecho da evidência"),
+    ],
+)
+def test_textual_prefixo_nao_contorna_validacao(
+    cliente_multimodal, pagina, trecho, erro
+):
+    import json
+
+    payload = {
+        "documento_id": "doc-123",
+        "tipo_documento": "laudo_laboratorial",
+        "dados_extraidos": {
+            "exame": {"nome": "Hemograma"}
+        },
+        "evidencias": [
+            {
+                "campo": "dados_extraidos.exame.nome",
+                "trecho_documento": trecho,
+                "pagina": pagina,
+                "origem": "documento",
+            }
+        ],
+    }
+
+    cliente_multimodal.models.generate_content.return_value.text = (
+        json.dumps(payload)
+    )
+
+    entrada = EntradaTexto(
+        documento_id="doc-123",
+        canal_origem="teste",
+        documento_texto="[Página 1]\nHemograma",
+    )
+
+    with pytest.raises(ValueError, match=erro):
+        ExtratorGemini().extrair_texto(entrada)

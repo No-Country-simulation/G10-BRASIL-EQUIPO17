@@ -17,6 +17,7 @@ from hashlib import sha256
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Literal
 from uuid import uuid4
+from threading import RLock
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -25,7 +26,12 @@ from mediflow.api.triage_processing import somente_processamento_local
 from mediflow.api.uploads import armazenamento
 from mediflow.storage.oci_storage import OCIStorage
 from mediflow.storage.triage_persistence import chave_indice_status
-from mediflow_contracts.models import ResultadoTriagem
+from mediflow_contracts.models import (
+    Classificacao,
+    DadosExtraidos,
+    DecisaoRoteamento,
+    ResultadoTriagem,
+)
 
 router = APIRouter(
     prefix="/v1/triagens",
@@ -38,6 +44,7 @@ _CHAVE_RESULTADO = re.compile(r"^resultados/([A-Za-z0-9][A-Za-z0-9-]{2,63})/([a-
 _FORMATO_INSTANTE = "%Y%m%dT%H%M%S%fZ"
 _CHAVE_REVISAO = re.compile(r"^revisoes/[A-Za-z0-9][A-Za-z0-9-]{2,63}/[0-9TZ]{22}-[a-f0-9]{32}\.json$")
 _LIMITE_PAGINA = 100
+_LOCK_REVISOES_LOCAL = RLock()
 _STATUS = Literal["recebido", "processando", "processado", "aguardando_auditoria", "falha"]
 
 
@@ -68,6 +75,82 @@ class Revisao(BaseModel):
         if self.acao == "aprovar" and self.correcoes:
             raise ValueError("aprovacao sem alteracoes nao aceita correcoes; use corrigir")
         return self
+
+
+def _mesclar_correcao(base: dict, edicoes: dict) -> dict:
+    """Valida a estrutura e monta copia temporaria da correcao parcial.
+
+    Objetos sao mesclados; listas sao substituidas integralmente.
+    O resultado original e o payload da revisao nao sao alterados.
+    """
+    if not isinstance(base, dict):
+        raise ValueError("Secao original invalida.")
+
+    if not isinstance(edicoes, dict) or not edicoes:
+        raise ValueError("Correcao parcial vazia ou invalida.")
+
+    atualizado = base.copy()
+
+    for campo, valor in edicoes.items():
+        if campo not in base:
+            raise ValueError("Campo inexistente na secao.")
+
+        if isinstance(valor, dict):
+            if not isinstance(base[campo], dict):
+                raise ValueError("Estrutura de correcao incompatível.")
+            atualizado[campo] = _mesclar_correcao(base[campo], valor)
+        else:
+            atualizado[campo] = valor
+
+    return atualizado
+
+
+def _validar_correcoes_humanas(resultado: dict, correcoes: dict) -> None:
+    """Valida correcoes parciais com os contratos Pydantic existentes.
+
+    A validacao usa apenas copias temporarias. Nao altera o resultado
+    original, a regra aplicada nem o registro enviado pelo revisor.
+    """
+    modelos = {
+        "classificacao": Classificacao,
+        "decisao_roteamento": DecisaoRoteamento,
+        "dados_extraidos": DadosExtraidos,
+    }
+
+    # Campos editaveis por revisores humanos.
+    # Campos calculados pelo motor nao podem ser sobrescritos.
+    campos_editaveis = {
+        "classificacao": {
+            "tipo_documento",
+            "nivel_prioridade_documental",
+            "especialidade_texto",
+        },
+        "decisao_roteamento": {
+            "destino_principal",
+        },
+        "dados_extraidos": set(DadosExtraidos.model_fields),
+    }
+
+    try:
+        for secao, edicoes in correcoes.items():
+            if secao not in campos_editaveis:
+                raise ValueError("Secao de correcao nao permitida.")
+
+            if not isinstance(edicoes, dict):
+                raise ValueError("Correcao deve ser um objeto.")
+
+            if not set(edicoes).issubset(campos_editaveis[secao]):
+                raise ValueError("Campo protegido contra correcao humana.")
+
+            modelo = modelos[secao]
+            mesclado = _mesclar_correcao(resultado[secao], edicoes)
+            modelo.model_validate(mesclado, strict=True)
+    except (KeyError, ValueError, TypeError) as exc:
+        raise _erro(
+            422,
+            "CORRECOES_INVALIDAS",
+            "As correcoes nao seguem o contrato documental.",
+        ) from exc
 
 
 def _erro(status: int, codigo: str, mensagem: str) -> HTTPException:
@@ -347,9 +430,23 @@ def registrar_revisao(
     revisao: Revisao,
     storage: Annotated[OCIStorage, Depends(armazenamento)],
 ) -> dict:
+    with _LOCK_REVISOES_LOCAL:
+        return _registrar_revisao_impl(
+            documento_id, revisao, storage
+        )
+
+
+def _registrar_revisao_impl(
+    documento_id: str,
+    revisao: Revisao,
+    storage: OCIStorage,
+) -> dict:
     resultado = _obter(storage, documento_id)
     if not resultado["decisao_roteamento"]["requer_revisao_humana"]:
         raise _erro(409, "REVISAO_NAO_REQUERIDA", "Este documento nao aguarda revisao humana.")
+
+    if revisao.correcoes:
+        _validar_correcoes_humanas(resultado, revisao.correcoes)
 
     try:
         agora = _instante_revisao(storage, documento_id)
