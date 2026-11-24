@@ -18,7 +18,7 @@ from mediflow.extraction.port import DocumentoParaExtracao
 
 
 def _normalizar_caminhos_multimodais(extracao: ExtracaoIA) -> ExtracaoIA:
-    """Adapta caminhos absolutos validos para a convencao relativa do motor.
+    """Adapta caminhos validos nos modos textual e multimodal para a convencao do motor.
 
     Nao altera valores, trechos, paginas nem sinais documentais. Executar
     somente apos a validacao textual e estrutural da extracao.
@@ -163,6 +163,11 @@ class ExtratorGemini:
             "sinais_documentais, incluindo marcadores explícitos de urgência. "
             "O campo da evidência deve identificar exatamente o caminho do dado "
             "comprovado. "
+            "Para evidencias de dados_extraidos, use caminhos relativos sem "
+            "o prefixo dados_extraidos.: paciente.nome, exame.nome, "
+            "exame.conclusao, exame.resultados[0].valor_texto e "
+            "medicamentos[0].nome. Use indices reais nos itens de lista. "
+            "Para sinais_documentais, preserve o prefixo sinais_documentais. "
             "Não deixe de incluir evidências para informações extraídas apenas "
             "porque aparecem em listas ou sinais_documentais. "
             "Quando identificar um marcador explícito de urgência, inclua "
@@ -201,11 +206,6 @@ class ExtratorGemini:
                 "Não complete campos ilegíveis nem resolva divergências por suposição. "
                 "Registre apenas informações com evidência literal verificável "
                 "na referência textual e respeite seus marcadores de página. "
-                "Para evidencias de dados_extraidos, use caminhos relativos sem "
-                "o prefixo dados_extraidos.: paciente.nome, exame.nome, "
-                "exame.conclusao, exame.resultados[0].valor_texto e "
-                "medicamentos[0].nome. Use indices reais nos itens de lista. "
-                "Para sinais_documentais, preserve o prefixo sinais_documentais. "
             )
 
         prompt = (
@@ -239,6 +239,6 @@ class ExtratorGemini:
             resposta_modelo=resposta.text,
             documento_texto=entrada.documento_texto,
        )
-        if documento is not None:
-            return _normalizar_caminhos_multimodais(resultado)
-        return resultado
+        # A validacao dos trechos e paginas ocorre antes da normalizacao.
+        # Aplicar a mesma convencao de caminhos aos dois modos.
+        return _normalizar_caminhos_multimodais(resultado)
