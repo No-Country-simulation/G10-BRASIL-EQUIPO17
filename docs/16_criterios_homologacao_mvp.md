@@ -11,7 +11,7 @@
 | Integração com Gemini e OCI reais | 3/3 cenários em fluxo HTTP, com 12 objetos auditados. |
 | Persistência e revisão humana na OCI real | Dois cenários textuais, três execuções e uma revisão humana; 14 novos objetos íntegros, 29 históricos preservados e 43 objetos auditados. Extração de referência, sem Gemini real. |
 | Extração multimodal híbrida | 3/3 cenários aprovados com Gemini real e FakeOCI; dois PDFs e um PNG, sem OCI real; [relatório](32_homologacao_multimodal_gemini.md). |
-| Interface e testes automatizados | 624 testes offline aprovados, 3 deselecionados, compilação sem erros; CI Python 3.12/3.13 pós-merge do [PR #71](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/71) aprovada ([execução](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/actions/runs/44974502834)). |
+| Interface e testes automatizados | Regressão de 24/11/2026: **651 passed, 3 skipped**; CI Python 3.12/3.13 aprovada após o [PR #74](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/74) ([execução](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/actions/runs/45509887206)). O marco anterior de 21/11/2026 teve 624 aprovados e 3 deselecionados. |
 
 **Interpretação:** os três cenários foram comprovados com serviços reais no escopo indicado. A validação de persistência e revisão humana é uma execução distinta. Os controles negativos de falhas externas foram testados com simulação; não se atribui a eles comprovação de falhas reais de provedores. Não há validação clínica. Consulte os [relatórios da integração real](29_h16_homologacao_http_gemini_oci_real.md) e da [persistência e revisão humana](31_h17_homologacao_persistencia_oci_real.md).
 
@@ -73,11 +73,18 @@ Para todos: `documento_id` consistente, evidências referentes a texto efetivame
 | H10 | Falha parcial OCI não retorna sucesso nem `armazenamento_oci.status=confirmado` | API e orquestração; Armazenamento OCI | Teste de falha entre gravações | Aprovado com FakeOCI e testes ampliados; falhas na OCI real pendentes |
 | H11 | Endpoint `/processar` funciona **somente** em ambiente local autorizado; não publica rota sem composição/configuração segura | API e orquestração | Testes HTTP, flags e Swagger local | Aprovado em aplicacao HTTP local; API principal sem rota de processamento; rotas de revisão humana também restritas às apps locais |
 | H12 | Entrada inválida, documento inexistente, falha externa e contrato inconsistente resultam em erro sanitizado e HTTP apropriado | API e orquestração; Extração documental; Armazenamento OCI | Testes 403/404/422/502/503, conforme caso | Testes HTTP locais aprovados; falhas externas reais pendentes |
-| H13 | CI Python 3.12/3.13, regressão offline e `compileall` aprovados; controle de exposição de segredos e dados reais | Todas as frentes | Checks GitHub + revisão de diff | 624 testes offline aprovados e 3 deselecionados (21/11/2026), compilação sem erros e CI 3.12/3.13 pós-merge do PR #71 aprovada; essas evidências não substituem auditoria de segurança |
+| H13 | CI Python 3.12/3.13, regressão offline e `compileall` aprovados; controle de exposição de segredos e dados reais | Todas as frentes | Checks GitHub + revisão de diff | Regressão posterior: 651 aprovados e 3 ignorados (24/11/2026), CI pós-merge do PR #74 aprovada em Python 3.12/3.13. Marco histórico: 624 aprovados e 3 deselecionados (21/11/2026). As verificações não substituem auditoria de segurança. |
 | H14 | Demonstração documentada dos três cenários, com JSON sanitizado, timestamp, commit e identificador do teste | API e orquestração; Interface e qualidade | Registro de execução e vídeo/roteiro se necessário | Aprovado com simulação (12/11/2026): [`docs/evidencias/h14_demonstracao_local.json`](evidencias/h14_demonstracao_local.json) |
 | H15 | Fluxo HTTP com Gemini real produz os resultados da seção 3, sem inventar dados | API e orquestração; Extração documental | Execução local controlada + evidência sanitizada | Aprovado real controlado local 3/3 (13/11/2026), com FakeOCI: [relatório](27_h15_homologacao_http_gemini_real.md) |
 | H16 | Fluxo HTTP com Gemini e OCI reais produz os resultados da seção 3, com objetos auditados de forma independente no bucket | API e orquestração; Extração documental; Armazenamento OCI | Execução local controlada + auditoria independente dos objetos OCI | Aprovado real controlado local 3/3 (17/11/2026), bucket `mediflow-docs-dev`, 12 objetos auditados: [relatório](29_h16_homologacao_http_gemini_oci_real.md). Revisão humana validada separadamente no critério seguinte. |
 | H17 | Índices por status, gravação e recuperação de revisão humana associada à execução, preservação dos resultados e não herança após reprocessamento | API, armazenamento OCI e testes | Auditoria independente por SHA-256, consulta e reprocessamento | Aprovado real controlado (20/11/2026): 2 cenários textuais, 3 execuções, 3 índices, 1 revisão e 43 objetos íntegros (14 novos e 29 históricos preservados); sem Gemini real. [Relatório](31_h17_homologacao_persistencia_oci_real.md) |
+
+### Complemento de integridade — PR #74 (24/11/2026)
+
+- **Revisão humana:** correções inválidas são rejeitadas com HTTP 422, `CORRECOES_INVALIDAS`, antes da persistência; resultado original preservado.
+- **Concorrência:** `RLock` protege o registro concorrente de revisões no mesmo processo; não fornece controle distribuído entre processos ou instâncias.
+- **Extração Gemini:** normalização de caminhos de evidências válidos nos modos textual e multimodal, sem modificar valores, trechos ou páginas.
+- **Cobertura:** regressão offline de 651 testes aprovados e 3 ignorados, complementada por CI Python 3.12/3.13 aprovada. Não houve nova homologação real de Gemini ou OCI neste PR.
 
 ## 5. Testes de falha e segurança (obrigatórios)
 
@@ -98,7 +105,7 @@ Para todos: `documento_id` consistente, evidências referentes a texto efetivame
 | Integração de código | API, extração, RAG, confirmação independente, regras, LangGraph, persistência e interface integrados e testados. |
 | Serviços reais | Os três cenários foram validados com Gemini e OCI reais. A revisão humana e os índices foram comprovados em validação posterior específica com OCI real e extração de referência. |
 | Tratamento de falhas | Os testes de falhas externas utilizam simulações controladas; não comprovam todas as falhas possíveis em provedores reais. |
-| Qualidade automatizada | Regressão consolidada com 624 testes offline aprovados e 3 deselecionados; compilação sem erros. CI Python 3.12/3.13 aprovada após a integração multimodal ([execução](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/actions/runs/44974502834)). |
+| Qualidade automatizada | Regressão posterior com 651 testes aprovados e 3 ignorados (24/11/2026); CI Python 3.12/3.13 aprovada após o [PR #74](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/74). A regressão anterior, de 624 aprovados e 3 deselecionados, permanece registrada historicamente. |
 
 **Limite das evidências:** a aprovação nos cenários sintéticos não equivale a certificação clínica ou homologação irrestrita de todos os controles operacionais. Latência foi registrada em ensaios específicos; custo e tokens do Gemini não foram medidos. A interface permanece restrita ao escopo educacional e controlado, com revisor sem autenticação. Os resultados simulados e os resultados com serviços externos devem ser interpretados separadamente.
 
@@ -132,4 +139,4 @@ git diff --check
 
 **A regressão offline não requer credenciais Gemini ou OCI.** Os testes utilizam adaptadores controlados quando necessário. As validações reais possuem procedimentos e evidências próprios.
 
-**Última regressão consolidada registrada:** 21/11/2026 — **624 passed, 3 deselected**; compilação e formatação sem erros. A CI pós-merge do PR #71 foi aprovada em Python 3.12/3.13 ([execução](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/actions/runs/44974502834)); o PR #67 permanece como registro histórico. [Homologação multimodal e evidências](32_homologacao_multimodal_gemini.md).
+**Última regressão consolidada registrada:** 24/11/2026 — **651 passed, 3 skipped**, sem acionamento real de Gemini ou OCI. CI pós-merge do [PR #74](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/74) aprovada em Python 3.12 e 3.13 ([execução](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/actions/runs/45509887206)). A regressão de 21/11/2026 (**624 passed, 3 deselected**) e a CI do PR #71 permanecem como evidências históricas. [Homologação multimodal e evidências](32_homologacao_multimodal_gemini.md).

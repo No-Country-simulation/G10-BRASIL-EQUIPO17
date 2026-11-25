@@ -11,7 +11,7 @@ O **MediFlow** é um protótipo educacional que recebe documentos de saúde **si
 > [!IMPORTANT]
 > **Não é um sistema clínico.** O MediFlow não diagnostica, prescreve, define condutas, autoriza procedimentos nem dispensa medicamentos. Os dados e documentos de demonstração são fictícios. **Não utilize dados reais de pacientes, não exponha os serviços à internet e não interprete alertas documentais como avaliação médica.**
 
-**Estado atual do projeto — 21/11/2026**
+**Estado atual do projeto — 24/11/2026**
 
 O MediFlow possui um MVP funcional com interface Streamlit, recebimento de arquivos e texto, extração estruturada, roteamento documental e revisão humana. Os três cenários oficiais representam documentos de rotina, sinais de possível urgência e informações ambíguas ou ilegíveis.
 
@@ -19,7 +19,7 @@ O MediFlow possui um MVP funcional com interface Streamlit, recebimento de arqui
 - **Validação integrada com serviços reais:** os três cenários foram processados com Google Gemini e Oracle Cloud Infrastructure (OCI) Object Storage reais, com 12 objetos auditados. Consulte o [relatório da validação integrada](docs/29_h16_homologacao_http_gemini_oci_real.md).
 - **Validação de persistência e revisão humana:** em execução posterior, dois exemplos textuais sintéticos foram processados com resultados de referência e OCI real, sem Gemini real. Foram validados índices por status, gravação e recuperação de revisão humana e isolamento de revisões entre reprocessamentos: 14 novos objetos íntegros, 43 objetos auditados no total e 29 históricos preservados por SHA-256. Consulte o [relatório de persistência e revisão humana](docs/31_h17_homologacao_persistencia_oci_real.md).
 - **Extração multimodal híbrida (optativa):** envio de PDF ou imagem original ao Gemini junto com referência textual verificável. Três cenários aprovados com Gemini real e FakeOCI, sem OCI real nesta execução. [Relatório e limitações](docs/32_homologacao_multimodal_gemini.md).
-- **Qualidade automatizada:** 624 testes offline aprovados e três deselecionados (21/11/2026), compilação sem erros; CI Python 3.12/3.13 aprovada após integrar a extração multimodal ([execução pós-merge](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/actions/runs/44974502834)).
+- **Qualidade automatizada (24/11/2026):** 651 testes offline aprovados e 3 ignorados, sem chamadas reais a Gemini ou OCI; CI Python 3.12/3.13 aprovada após o PR #74 ([execução](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/actions/runs/45509887206)). A validação anterior, de 21/11/2026, registrou 624 testes aprovados e 3 deselecionados.
 
 As validações reais e a demonstração local são execuções distintas. Não há validação clínica nem autorização para uso com dados reais de pacientes.
 
@@ -158,6 +158,14 @@ O LangGraph usa os nós `validar_contratos`, `avaliar_regras`, `rota_R001` a `ro
 | **R006** | Nenhuma condição anterior atendida, inclusive **indicador de qualidade abaixo do limiar** | `auditoria_humana` | Sim |
 
 A revisão humana começa como **um estado de encaminhamento**. Nas APIs locais, a Fila de auditoria da interface registra a decisão (aprovar, corrigir ou rejeitar) em `POST /v1/triagens/{documento_id}/revisao`, sem alterar o resultado original.
+
+### Integridade das revisões e evidências — PR #74
+
+- **Correções humanas:** as edições parciais são validadas com os contratos Pydantic existentes. Campos desconhecidos, protegidos ou incompatíveis são rejeitados com HTTP 422 e código `CORRECOES_INVALIDAS` antes da gravação da revisão. O resultado original permanece inalterado.
+- **Concorrência local:** o registro de revisões utiliza `RLock` para sincronizar operações concorrentes dentro do mesmo processo Python. Esta proteção não garante sincronização entre processos, workers ou instâncias distintas.
+- **Evidências Gemini:** nos modos textual e multimodal, os caminhos de evidência iniciados por `dados_extraidos.` são normalizados somente quando podem ser resolvidos nos dados extraídos. Valores, trechos, páginas e sinais documentais não são alterados por essa normalização. Caminhos não resolvidos permanecem sem normalização.
+
+Essas melhorias foram integradas pelo [PR #74](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/74) e verificadas por testes offline. Elas não constituem uma nova homologação com Gemini ou OCI reais.
 
 ## Cenários de demonstração
 
@@ -489,6 +497,8 @@ A suíte automatizada cobre contratos, integridade, roteamento, RAG, LangGraph, 
 ```
 
 **Validação consolidada (21/11/2026):** **624 testes offline aprovados e 3 deselecionados**, compilação sem erros. A CI pós-merge do [PR #71](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/71) foi aprovada em Python 3.12 e 3.13 ([execução](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/actions/runs/44974502834)). Os testes excluídos da regressão offline são os que envolvem Gemini real. Os relatórios abaixo documentam separadamente as validações com serviços externos e os ensaios controlados.
+
+**Regressão posterior (24/11/2026):** **651 passed, 3 skipped**, sem credenciais externas. Os três testes ignorados dependem da configuração para execução com Gemini real. A CI pós-merge do [PR #74](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/74) foi aprovada em Python 3.12 e 3.13 ([execução](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/actions/runs/45509887206)). A validação de 624 testes acima permanece como registro histórico de 21/11/2026.
 
 **Documentos de evidência:**
 
