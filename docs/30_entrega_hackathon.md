@@ -85,7 +85,7 @@ Para reproduzir a aplicação, consulte o [README técnico](../README.md) e o [g
 
 ## 2. Vídeo demo
 
-**YouTube:** `<COLAR O LINK DO VÍDEO AQUI>`
+**YouTube:** <https://youtu.be/53AHQ8wyTQM>
 
 ## 3. Ferramentas
 
@@ -107,7 +107,7 @@ Para reproduzir a aplicação, consulte o [README técnico](../README.md) e o [g
 |---|---|
 | Repositório | https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17 |
 | README técnico | [README.md](../README.md) |
-| Vídeo demo | `<COLAR O LINK DO YOUTUBE>` |
+| Vídeo demo | <https://youtu.be/53AHQ8wyTQM> |
 | Guia da interface | [Streamlit — instalação e execução](../src/mediflow/ui/README.md) |
 | Diagrama do grafo | [Grafo de decisão](../diagramas/grafo_mediflow_v0.1.png) |
 | Validação da extração com Gemini real | [Relatório de validação da extração](27_h15_homologacao_http_gemini_real.md) |
