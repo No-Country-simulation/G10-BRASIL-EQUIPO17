@@ -103,6 +103,14 @@ O `ResultadoTriagem` v0.1 é retornado com os campos aditivos `recebido_em` e `r
 
 Na demonstração e na validação da extração com Gemini real, os registros ficam na FakeOCI em memória. A persistência e recuperação da revisão humana na OCI Object Storage foram comprovadas em uma validação controlada com fixtures sintéticas, sem chamadas Gemini reais. O reprocessamento não herda automaticamente revisões anteriores. Consulte o [relatório de persistência e revisão humana](../../../docs/31_h17_homologacao_persistencia_oci_real.md).
 
+### Integridade das correções humanas — PR #74
+
+As correções parciais informadas pelo revisor são verificadas contra os modelos Pydantic do contrato documental. Campos desconhecidos, tipos incompatíveis e campos não editáveis são rejeitados antes da persistência, com HTTP 422 e código `CORRECOES_INVALIDAS`. Uma revisão inválida não deve gerar novo registro nem substituir o resultado original.
+
+As operações de registro de revisão são sincronizadas localmente com `RLock`. Essa sincronização protege apenas threads do mesmo processo, sem oferecer garantia de concorrência entre múltiplos processos, workers ou instâncias. O revisor permanece sem autenticação, conforme as limitações existentes.
+
+Ver [PR #74](https://github.com/No-Country-simulation/G10-BRASIL-EQUIPO17/pull/74) e os testes de regressão da API.
+
 ### Consulta por sessão e isolamento entre APIs
 
 Quando a API não disponibiliza as rotas de consulta e revisão, a interface utiliza somente os resultados que a própria API retornou naquela sessão do navegador e exibe o aviso **Dados desta sessão do navegador** na Visão geral e na Fila de auditoria.

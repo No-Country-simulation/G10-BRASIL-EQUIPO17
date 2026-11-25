@@ -522,3 +522,428 @@ def test_ajuste8b_rejeicao_com_alteracoes_persistidas(cliente):
     pendentes = cliente.get("/v1/triagens", params={"status": "aguardando_auditoria"}).json()
     assert not any(d["documento_id"] == "DOC-005" and
                    d["revisao_humana"] is None for d in pendentes)
+
+# REGRESSAO_VALIDACAO_REVISAO_V1
+@pytest.mark.parametrize(
+    "correcoes",
+    [
+        {"classificacao": {"campo_inexistente": "valor"}},
+        {"classificacao": {"tipo_documento": "categoria_invalida"}},
+        {"dados_extraidos": {"paciente": {"campo_inexistente": "valor"}}},
+        {"dados_extraidos": {"paciente": {"idade": -2}}},
+        {"decisao_roteamento": {"regra_principal": "R999"}},
+    ],
+    ids=[
+        "campo_classificacao_inexistente",
+        "categoria_documental_invalida",
+        "campo_paciente_inexistente",
+        "idade_negativa",
+        "regra_roteamento_inexistente",
+    ],
+)
+def test_regressao_correcao_rejeita_campo_invalido(cliente, correcoes):
+    resultado = processar(cliente, "DOC-005")
+
+    chave = resultado["armazenamento_oci"]["chave_resultado"]
+    original = cliente_fakeoci.objetos[chave]
+
+    resposta = revisar(
+        cliente,
+        "DOC-005",
+        acao="corrigir",
+        correcoes=correcoes,
+    )
+
+    assert resposta.status_code == 422, resposta.text
+
+    assert not [
+        chave_objeto
+        for chave_objeto in cliente_fakeoci.objetos
+        if chave_objeto.startswith("revisoes/DOC-005/")
+    ]
+
+    assert cliente_fakeoci.objetos[chave] == original
+
+# REGRESSAO_VALIDACAO_REVISAO_COBERTURA_V2
+@pytest.mark.parametrize(
+    "correcoes",
+    [
+        {"dados_extraidos": {"paciente": {"nome": None}}},
+        {"dados_extraidos": {"paciente": {"nome_status": "ausente"}}},
+        {"dados_extraidos": {"paciente": {"idade": "42"}}},
+        {"dados_extraidos": {"data_emissao": "23/11/2026"}},
+        {"dados_extraidos": {"medicamentos": [
+            {"nome": "Medicamento ficticio",
+             "dosagem_texto": "Dose ficticia",
+             "dosagem_status": "ilegivel"}
+        ]}},
+        {"dados_extraidos": {"medicamentos": [
+            {"nome": "Medicamento ficticio",
+             "dosagem_texto": None,
+             "dosagem_status": "legivel"}
+        ]}},
+        {"dados_extraidos": {"medicamentos": [
+            {"nome": "Medicamento ficticio",
+             "dosagem_texto": None,
+             "dosagem_status": "ilegivel",
+             "campo_inexistente": "valor"}
+        ]}},
+        {"classificacao": {"indicador_qualidade": {
+            "campo_inexistente": 123
+        }}},
+        {"decisao_roteamento": {
+            "requer_revisao_humana": "sim"
+        }},
+    ],
+    ids=[
+        "nome_nulo_com_status_legivel",
+        "status_ausente_com_nome_presente",
+        "idade_com_tipo_incorreto",
+        "data_em_formato_invalido",
+        "dose_informada_mas_ilegivel",
+        "dose_legivel_sem_texto",
+        "campo_extra_em_medicamento",
+        "campo_extra_em_indicador",
+        "booleano_invalido",
+    ],
+)
+def test_validacao_revisao_v2_rejeita_inconsistencia(cliente, correcoes):
+    resultado = processar(cliente, "DOC-005")
+    chave = resultado["armazenamento_oci"]["chave_resultado"]
+    original = cliente_fakeoci.objetos[chave]
+
+    resposta = revisar(
+        cliente, "DOC-005",
+        acao="corrigir", correcoes=correcoes,
+    )
+
+    assert resposta.status_code == 422, resposta.text
+    assert cliente_fakeoci.objetos[chave] == original
+    assert not [
+        k for k in cliente_fakeoci.objetos
+        if k.startswith("revisoes/DOC-005/")
+    ]
+
+
+def test_validacao_revisao_v2_aceita_correcao_parcial(cliente):
+    resultado = processar(cliente, "DOC-005")
+    chave = resultado["armazenamento_oci"]["chave_resultado"]
+    original = cliente_fakeoci.objetos[chave]
+
+    correcoes = {
+        "dados_extraidos": {
+            "paciente": {"idade": 34}
+        }
+    }
+
+    resposta = revisar(
+        cliente, "DOC-005",
+        acao="corrigir", correcoes=correcoes,
+    )
+
+    assert resposta.status_code == 201, resposta.text
+    assert resposta.json()["revisao_humana"]["correcoes"] == correcoes
+    assert cliente_fakeoci.objetos[chave] == original
+
+    consulta = cliente.get("/v1/triagens/DOC-005")
+    assert consulta.status_code == 200
+    assert consulta.json()["revisao_humana"]["correcoes"] == correcoes
+
+
+def test_validacao_revisao_v2_aceita_rejeicao_com_edicao(cliente):
+    resultado = processar(cliente, "DOC-005")
+    chave = resultado["armazenamento_oci"]["chave_resultado"]
+    original = cliente_fakeoci.objetos[chave]
+
+    correcoes = {
+        "dados_extraidos": {
+            "medicamentos": [
+                {
+                    "nome": "Medicamento Beta (ficticio)",
+                    "dosagem_texto": None,
+                    "dosagem_status": "ilegivel",
+                }
+            ]
+        }
+    }
+
+    resposta = revisar(
+        cliente, "DOC-005",
+        acao="rejeitar",
+        comentario="Rejeicao documentada em teste sintetico",
+        correcoes=correcoes,
+    )
+
+    assert resposta.status_code == 201, resposta.text
+    registro = resposta.json()["revisao_humana"]
+    assert registro["acao"] == "rejeitar"
+    assert registro["correcoes"] == correcoes
+    assert cliente_fakeoci.objetos[chave] == original
+
+    consulta = cliente.get("/v1/triagens/DOC-005")
+    assert consulta.status_code == 200
+    assert consulta.json()["revisao_humana"]["acao"] == "rejeitar"
+
+
+# REGRESSAO_CAMPOS_DERIVADOS_V3
+@pytest.mark.parametrize(
+    "correcoes",
+    [
+        {"classificacao": {
+            "indicador_qualidade": {"valor": 0.95}
+        }},
+        {"decisao_roteamento": {
+            "regra_principal": "R001"
+        }},
+        {"decisao_roteamento": {
+            "requer_revisao_humana": False
+        }},
+    ],
+    ids=[
+        "indicador_calculado",
+        "regra_deterministica",
+        "obrigatoriedade_auditoria",
+    ],
+)
+def test_validacao_revisao_v3_bloqueia_campos_derivados(
+    cliente, correcoes
+):
+    resultado = processar(cliente, "DOC-005")
+    chave = resultado["armazenamento_oci"]["chave_resultado"]
+    original = cliente_fakeoci.objetos[chave]
+
+    resposta = revisar(
+        cliente,
+        "DOC-005",
+        acao="corrigir",
+        correcoes=correcoes,
+    )
+
+    assert resposta.status_code == 422
+
+    assert cliente_fakeoci.objetos[chave] == original
+
+    assert not [
+        k for k in cliente_fakeoci.objetos
+        if k.startswith("revisoes/DOC-005/")
+    ]
+
+
+# REGRESSAO_CONCORRENCIA_REVISAO_V1
+def test_concorrencia_v1_ultima_revisao_confirmada(monkeypatch):
+    """Revisoes concorrentes respeitam exclusao e ordem de confirmacao."""
+    import copy
+    import json
+    import threading
+
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+
+    import mediflow.api.triage_review as modulo
+
+    from mediflow.api.app_demo_local import ObjectStorageMemoria
+    from mediflow.storage.oci_storage import OCIStorage
+
+    fake = ObjectStorageMemoria()
+    storage = OCIStorage(
+        fake, "namespace-teste", "bucket-sintetico"
+    )
+
+    chave_resultado = (
+        "resultados/DOC-005/"
+        + "a" * 32 + "/"
+        + "b" * 32 + ".json"
+    )
+
+    resultado_base = {
+        "documento_id": "DOC-005",
+        "decisao_roteamento": {
+            "requer_revisao_humana": True,
+        },
+        "armazenamento_oci": {
+            "chave_resultado": chave_resultado,
+        },
+    }
+
+    a_no_calculo = threading.Event()
+    liberar_a = threading.Event()
+    b_iniciou = threading.Event()
+    b_no_calculo = threading.Event()
+
+    ordem_lock = threading.Lock()
+    gravacoes_confirmadas = []
+
+    gravacao_original = fake.put_object
+
+    def gravar_com_ordem(
+        namespace, bucket, nome, dados, **kwargs
+    ):
+        resposta = gravacao_original(
+            namespace, bucket, nome, dados, **kwargs
+        )
+
+        if nome.startswith("revisoes/DOC-005/"):
+            registro = json.loads(dados.decode("utf-8"))
+            with ordem_lock:
+                gravacoes_confirmadas.append(
+                    registro["revisor"]
+                )
+
+        return resposta
+
+    monkeypatch.setattr(
+        fake, "put_object", gravar_com_ordem
+    )
+
+    monkeypatch.setattr(
+        modulo,
+        "_obter",
+        lambda storage, documento_id: copy.deepcopy(
+            resultado_base
+        ),
+    )
+
+    instante_fixo = datetime(
+        2026, 11, 23, 12, 0, 0,
+        tzinfo=timezone.utc,
+    )
+
+    class RelogioParado(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return instante_fixo
+
+    monkeypatch.setattr(
+        modulo, "datetime", RelogioParado
+    )
+
+    instante_original = modulo._instante_revisao
+
+    def instante_observado(storage, documento_id):
+        nome = threading.current_thread().name
+
+        if nome == "revisor_A":
+            a_no_calculo.set()
+
+            if not liberar_a.wait(timeout=10):
+                raise RuntimeError(
+                    "Timeout aguardando liberacao de A."
+                )
+
+        elif nome == "revisor_B":
+            b_no_calculo.set()
+
+        return instante_original(
+            storage, documento_id
+        )
+
+    monkeypatch.setattr(
+        modulo,
+        "_instante_revisao",
+        instante_observado,
+    )
+
+    def uuid_controlado():
+        nome = threading.current_thread().name
+
+        if nome == "revisor_A":
+            return SimpleNamespace(hex="0" * 32)
+
+        if nome == "revisor_B":
+            return SimpleNamespace(hex="f" * 32)
+
+        raise RuntimeError("Thread inesperada.")
+
+    monkeypatch.setattr(
+        modulo, "uuid4", uuid_controlado
+    )
+
+    respostas = {}
+
+    def executar(revisor, acao, comentario=""):
+        try:
+            if revisor == "B":
+                b_iniciou.set()
+
+            respostas[revisor] = modulo.registrar_revisao(
+                "DOC-005",
+                modulo.Revisao(
+                    acao=acao,
+                    revisor=revisor,
+                    comentario=comentario,
+                ),
+                storage,
+            )
+        except Exception as exc:
+            respostas[revisor] = exc
+
+    thread_a = threading.Thread(
+        target=executar,
+        args=("A", "aprovar"),
+        name="revisor_A",
+    )
+
+    thread_b = threading.Thread(
+        target=executar,
+        args=("B", "rejeitar", "Motivo sintetico"),
+        name="revisor_B",
+    )
+
+    thread_a.start()
+
+    try:
+        assert a_no_calculo.wait(timeout=10), (
+            "Revisor A nao entrou no calculo."
+        )
+
+        thread_b.start()
+
+        assert b_iniciou.wait(timeout=10), (
+            "Revisor B nao iniciou."
+        )
+
+        assert not b_no_calculo.wait(timeout=2), (
+            "Revisores sobrepostos: B entrou no calculo "
+            "enquanto A ainda estava na operacao protegida."
+        )
+
+        liberar_a.set()
+
+        thread_a.join(timeout=10)
+        thread_b.join(timeout=10)
+
+        assert not thread_a.is_alive()
+        assert not thread_b.is_alive()
+
+        assert set(respostas) == {"A", "B"}
+
+        assert all(
+            not isinstance(valor, Exception)
+            for valor in respostas.values()
+        ), respostas
+
+        revisoes = [
+            chave
+            for chave in fake.objetos
+            if chave.startswith("revisoes/DOC-005/")
+        ]
+
+        assert len(revisoes) == 2
+        assert gravacoes_confirmadas == ["A", "B"]
+
+        ultima = modulo._ultima_revisao(
+            storage, "DOC-005", chave_resultado
+        )
+
+        assert ultima is not None
+        assert ultima["revisor"] == gravacoes_confirmadas[-1], (
+            "A ultima revisao exibida nao corresponde "
+            "a ultima gravacao confirmada."
+        )
+
+    finally:
+        liberar_a.set()
+        thread_a.join(timeout=5)
+
+        if thread_b.ident is not None:
+            thread_b.join(timeout=5)
